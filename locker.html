@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🔒 ແຜນທີ່ສຳຫຼວດ · Survey Map</title>
+<style>
+  html, body { margin:0; height:100%; font-family:'Segoe UI','Noto Sans Lao',sans-serif;
+               background:#1e293b; display:flex; align-items:center; justify-content:center; }
+  .box { background:#fff; border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,.4);
+         padding:34px 36px 28px; width:min(380px, 88vw); text-align:center; }
+  h2 { margin:0 0 4px; font-size:19px; color:#111; }
+  .sub { color:#666; font-size:13px; margin:0 0 20px; }
+  input[type=password] { width:100%; box-sizing:border-box; padding:11px 13px; font-size:15px;
+         border:1.5px solid #cbd5e1; border-radius:8px; outline:none; font-family:inherit; }
+  input[type=password]:focus { border-color:#2563eb; }
+  .remember { display:flex; align-items:center; gap:7px; font-size:12.5px; color:#555;
+              margin:12px 0 16px; cursor:pointer; }
+  button { width:100%; padding:11px; font-size:15px; font-weight:600; color:#fff;
+           background:#2563eb; border:0; border-radius:8px; cursor:pointer; font-family:inherit; }
+  button:disabled { background:#93b2f5; cursor:wait; }
+  #err { color:#b91c1c; font-size:13px; margin:12px 0 0; }
+  .hint { color:#999; font-size:11.5px; margin:16px 0 0; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>🔒 ແຜນທີ່ສຳຫຼວດ — ຫຼວງພະບາງ</h2>
+  <p class="sub">Survey Map — Luang Prabang</p>
+  <input type="password" id="pw" placeholder="ໃສ່ລະຫັດຜ່ານ · Enter password" autofocus>
+  <label class="remember"><input type="checkbox" id="remember" checked>
+    ຈົດຈຳໄວ້ໃນເຄື່ອງນີ້ · Remember on this device</label>
+  <button id="go">ເປີດແຜນທີ່ · Open map</button>
+  <p id="err" hidden>❌ ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ · Wrong password</p>
+  <p class="hint">ຂໍລະຫັດຜ່ານຈາກຜູ້ດູແລໂຄງການ · Ask the project owner for the password</p>
+</div>
+
+<script>
+const PAYLOAD = __PAYLOAD__;   // {salt, iv, ct} base64 — AES-256-GCM, key = PBKDF2-SHA256(password)
+
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const $ = id => document.getElementById(id);
+
+async function tryOpen(pw, fromStore) {
+  try {
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: b64(PAYLOAD.salt), iterations: 600000, hash: 'SHA-256' },
+      keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: b64(PAYLOAD.iv) }, key, b64(PAYLOAD.ct));
+    if (fromStore || $('remember').checked) localStorage.setItem('map_pw', pw);
+    const html = new TextDecoder().decode(plain);
+    document.open(); document.write(html); document.close();
+    return true;
+  } catch (e) {
+    if (fromStore) localStorage.removeItem('map_pw');
+    return false;
+  }
+}
+
+async function submit() {
+  const pw = $('pw').value;
+  if (!pw) return;
+  $('go').disabled = true; $('err').hidden = true;
+  const ok = await tryOpen(pw, false);
+  if (!ok) { $('go').disabled = false; $('err').hidden = false; $('pw').select(); }
+}
+$('go').addEventListener('click', submit);
+$('pw').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+
+// auto-unlock if this device remembered the password (cleared automatically if rotated)
+const saved = localStorage.getItem('map_pw');
+if (saved) tryOpen(saved, true);
+</script>
+</body>
+</html>

@@ -21,6 +21,7 @@ HERE = Path(__file__).parent
 SERVER = os.environ.get("KOBO_SERVER", "https://kf.kobotoolbox.org").rstrip("/")
 TOKEN = os.environ.get("KOBO_TOKEN", "")
 UID = os.environ.get("KOBO_ASSET_UID", "")
+PASSWORD = os.environ.get("MAP_PASSWORD", "")  # when set, the published page is AES-encrypted
 
 # account status (S2_Q7): label + dark-tone color
 STATUS = {  # 1=has account, 2=opening in progress, 3=no account
@@ -187,10 +188,34 @@ def build(form_asset, raw_records):
             .replace("__ROADS__",     roads)
             .replace("__DISTRICTS__", districts))
 
+    if PASSWORD:
+        html = encrypt_page(html, PASSWORD)
+        print("page encrypted with MAP_PASSWORD (AES-256-GCM, PBKDF2 600k)")
+    else:
+        print("WARNING: MAP_PASSWORD not set -> page published WITHOUT password protection")
+
     out = HERE / "site" / "index.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
     print(f"saved: {out} ({out.stat().st_size / 1024:.0f} KB)")
+
+
+def encrypt_page(html, password):
+    """Wrap the map page in locker.html: AES-256-GCM payload + in-browser decrypt."""
+    import base64
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+    salt, iv = os.urandom(16), os.urandom(12)
+    key = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt,
+                     iterations=600_000).derive(password.encode("utf-8"))
+    ct = AESGCM(key).encrypt(iv, html.encode("utf-8"), None)
+    payload = {"salt": base64.b64encode(salt).decode(),
+               "iv":   base64.b64encode(iv).decode(),
+               "ct":   base64.b64encode(ct).decode()}
+    locker = (HERE / "locker.html").read_text(encoding="utf-8")
+    return locker.replace("__PAYLOAD__", json.dumps(payload))
 
 
 def main():

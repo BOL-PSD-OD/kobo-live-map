@@ -36,6 +36,16 @@ git push -u origin main
 |---|---|---|
 | `KOBO_TOKEN` | API token | เข้า KoboToolbox → คลิกรูปโปรไฟล์ → Account Settings → **Security → API Key** (หรือเปิด `https://kf.kobotoolbox.org/token/?format=json`) |
 | `KOBO_ASSET_UID` | รหัสฟอร์ม เช่น `aB3dE5fG7hJ9kLmN0pQr` | เปิดฟอร์มใน Kobo แล้วดูใน URL: `.../forms/`**`aB3dE5...`**`/landing` |
+| `MAP_PASSWORD` | รหัสผ่านหน้าแผนที่ | ตั้งเอง — **ตัวอักษร+ตัวเลข+อักขระพิเศษ ยาว 10 ตัวขึ้นไป** เช่น `LPB@map2026!kobo` |
+
+> 🔒 เมื่อตั้ง `MAP_PASSWORD` หน้าแผนที่ทั้งหน้าจะถูกเข้ารหัส AES-256 — คนเปิดลิงก์ต้องใส่รหัสก่อนถึงเห็นข้อมูล
+> ถ้าไม่ตั้ง ระบบจะเผยแพร่แบบไม่มีรหัส (มีคำเตือนใน log)
+
+### การหมุนรหัสผ่านทุก 3 เดือน
+1. คิดรหัสใหม่ (คุณเป็นคนตั้งเอง จึงรู้รหัสเสมอ)
+2. Settings → Secrets → แก้ค่า `MAP_PASSWORD` ทับของเดิม
+3. Actions → Build survey map → **Run workflow** หนึ่งครั้ง
+4. แจ้งรหัสใหม่ให้ทีมผ่านช่องทางภายใน — รหัสเก่าและเครื่องที่จำรหัสเก่าไว้จะหลุดทันที
 
 ถ้าบัญชีอยู่เซิร์ฟเวอร์อื่น (เช่น `eu.kobotoolbox.org`) ให้เพิ่ม **Variable** (แท็บ Variables) ชื่อ `KOBO_SERVER` ค่า `https://eu.kobotoolbox.org`
 
