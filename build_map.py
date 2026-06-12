@@ -200,6 +200,24 @@ def build(form_asset, raw_records):
     print(f"saved: {out} ({out.stat().st_size / 1024:.0f} KB)")
 
 
+# auto-lock: after 30 idle minutes, forget the stored password and return to the lock screen
+IDLE_LOCK_JS = """<script>
+(() => {
+  const LIMIT_MS = 30 * 60 * 1000;
+  let last = Date.now();
+  const bump = () => { last = Date.now(); };
+  ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(ev =>
+    addEventListener(ev, bump, { passive: true }));
+  setInterval(() => {
+    if (Date.now() - last >= LIMIT_MS) {
+      try { localStorage.removeItem('map_pw'); } catch (e) {}
+      location.reload();
+    }
+  }, 30000);
+})();
+</script>"""
+
+
 def encrypt_page(html, password):
     """Wrap the map page in locker.html: AES-256-GCM payload + in-browser decrypt."""
     import base64
@@ -207,6 +225,7 @@ def encrypt_page(html, password):
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+    html = html.replace("</body>", IDLE_LOCK_JS + "\n</body>")
     salt, iv = os.urandom(16), os.urandom(12)
     key = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt,
                      iterations=600_000).derive(password.encode("utf-8"))
