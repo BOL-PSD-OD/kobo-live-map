@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ແຜນທີ່ສຳຫຼວດ — ຫຼວງພະບາງ · Survey Map — Luang Prabang</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  html, body { margin:0; height:100%; font-family:'Segoe UI','Noto Sans Lao',sans-serif; }
+  /* Leaflet's own CSS sets Helvetica on .leaflet-container — override so Lao text in
+     the layer control / attribution matches the rest of the UI */
+  #map, .leaflet-container { font-family:'Segoe UI','Noto Sans Lao',sans-serif; }
+  #map { position:absolute; inset:0; }
+  /* detail card sliding in from the left */
+  #panel { position:absolute; top:0; left:0; bottom:0; width:360px; max-width:85vw;
+           background:#fff; box-shadow:2px 0 12px rgba(0,0,0,.35); z-index:1200;
+           transform:translateX(-105%); transition:transform .28s ease; display:flex; flex-direction:column; }
+  #panel.open { transform:none; }
+  #panel-head { padding:14px 16px 10px; border-bottom:1px solid #e5e5e5; }
+  #panel-title { font-size:16px; font-weight:700; margin:0 28px 6px 0; }
+  #panel-sub { font-size:11px; color:#777; margin-bottom:8px; }
+  #panel-status { display:inline-block; color:#fff; font-size:12px; font-weight:600;
+                  padding:3px 10px; border-radius:12px; }
+  #panel-close { position:absolute; top:10px; right:12px; border:0; background:none;
+                 font-size:20px; cursor:pointer; color:#666; }
+  #panel-body { overflow-y:auto; padding:6px 16px 16px; flex:1; }
+  .row { padding:8px 0; border-bottom:1px solid #f0f0f0; }
+  .q { font-size:12px; color:#666; margin-bottom:2px; }
+  .a { font-size:13.5px; color:#111; font-weight:600; white-space:pre-wrap; }
+  /* shop search box (top left, next to the zoom control) */
+  #search { position:absolute; top:10px; left:54px; z-index:1100; width:min(300px, 60vw); }
+  #search-input { width:100%; box-sizing:border-box; padding:8px 12px; font-size:13.5px;
+                  border:0; border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,.3); outline:none;
+                  font-family:inherit; }
+  #search-results { background:#fff; border-radius:8px; margin-top:4px; max-height:260px;
+                    overflow-y:auto; box-shadow:0 2px 8px rgba(0,0,0,.3); display:none; }
+  .s-item { display:flex; align-items:center; gap:8px; padding:8px 12px; font-size:13px;
+            cursor:pointer; border-bottom:1px solid #f2f2f2; }
+  .s-item:hover { background:#f5f5f5; }
+  .s-item.none { color:#999; cursor:default; }
+  /* filters: account status + business type (top right) — collapsible */
+  #filter { position:absolute; top:10px; right:10px; z-index:1100; background:#fff;
+            border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,.3); padding:10px 12px; font-size:13px;
+            max-height:calc(100vh - 40px); overflow-y:auto; }
+  #filter-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  #filter-head h4 { margin:0; font-size:13px; }
+  #filter-toggle { border:0; background:#eee; border-radius:6px; width:22px; height:22px;
+                   cursor:pointer; font-size:12px; line-height:1; flex:none; }
+  #filter.collapsed { padding:6px 8px; }
+  #filter.collapsed #filter-body, #filter.collapsed #filter-head h4 { display:none; }
+  #filter.collapsed #filter-toggle { width:30px; height:30px; font-size:15px; }
+  .f-title { font-size:12px; font-weight:700; color:#444; margin:9px 0 3px; }
+  #filter label { display:flex; align-items:center; gap:7px; padding:3px 0; cursor:pointer; white-space:nowrap; }
+  .dot { width:13px; height:13px; border-radius:50%; border:1.5px solid #fff;
+         box-shadow:0 0 2px rgba(0,0,0,.5); flex:none; }
+  .cnt { color:#888; font-size:11.5px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="panel">
+  <div id="panel-head">
+    <button id="panel-close" onclick="closeCard()">✕</button>
+    <div id="panel-title"></div>
+    <div id="panel-sub"></div>
+    <span id="panel-status"></span>
+  </div>
+  <div id="panel-body"></div>
+</div>
+
+<div id="search">
+  <input id="search-input" type="text" placeholder="🔍 ຄົ້ນຫາຊື່ຮ້ານ · Search shop…" autocomplete="off">
+  <div id="search-results"></div>
+</div>
+
+<div id="filter">
+  <div id="filter-head">
+    <h4>ຕົວກອງ · Filters</h4>
+    <button id="filter-toggle" title="Collapse / Expand">–</button>
+  </div>
+  <div id="filter-body">
+    <div class="f-title">ສະຖານະບັນຊີ · Account status</div>
+    <div id="filter-rows"></div>
+    <div class="f-title">ປະເພດທຸລະກິດ · Business type</div>
+    <div id="type-rows"></div>
+  </div>
+</div>
+
+<script>
+const STATUS    = __STATUS__;
+const TYPES     = __TYPES__;
+const POINTS    = __POINTS__;
+const DISTRICTS = __DISTRICTS__;
+const ROADS     = __ROADS__;
+
+const map = L.map('map', { preferCanvas: true });  // canvas renderer: more robust than SVG in embedded browsers
+
+// 3 basemaps: standard OSM, minimal light, minimal dark
+const baseStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' });
+const baseLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  { maxZoom: 20, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' });
+const baseDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  { maxZoom: 20, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' });
+baseStandard.addTo(map);
+
+// IMPORTANT: set the view BEFORE adding vector layers, otherwise they may never be drawn
+const ptLatLngs = POINTS.features.map(f => [f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+map.fitBounds(ptLatLngs.length ? L.latLngBounds(ptLatLngs).pad(0.25) : L.geoJSON(DISTRICTS).getBounds());
+window.addEventListener('load', () => map.invalidateSize());  // re-measure if the webview resizes after load
+
+// overlay layers — both can be toggled in the layer control (bottom left)
+const dLayer = L.geoJSON(DISTRICTS, {           // district boundaries (no names: district is in the card, S2_Q9)
+  style: { color:'#333', weight:1.4, fill:false },
+  interactive: false
+}).addTo(map);
+const roadsLayer = L.geoJSON(ROADS, {           // survey roads layer
+  style: { color:'#b45309', weight:1.1, opacity:0.75 },
+  interactive: false
+}).addTo(map);
+
+L.control.layers({
+  'ປົກກະຕິ · Standard': baseStandard,
+  'ສີຂາວ · Light':      baseLight,
+  'ສີດຳ · Dark':        baseDark,
+}, {
+  'ເຂດແດນເມືອງ · District boundaries': dLayer,
+  'ຖະໜົນ · Roads':                     roadsLayer,
+}, { position: 'bottomleft' }).addTo(map);
+
+function esc(s) {
+  return String(s ?? '—').replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// survey points — dark tone color by status
+const markers = [];
+let lastMarkerEvent = null;   // the DOM click already handled by a marker
+let selected = null;
+POINTS.features.forEach(f => {
+  const st  = STATUS[f.properties.status] || { color:'#555', label:f.properties.status };
+  const [lon, lat] = f.geometry.coordinates;
+  const m = L.circleMarker([lat, lon],
+    { radius:9, color:'#fff', weight:1.6, fillColor:st.color, fillOpacity:0.95,
+      bubblingMouseEvents:false });  // keep marker clicks from reaching the map (map click = close card)
+  m.status  = f.properties.status;
+  m.biztype = f.properties.biztype;
+  m.title   = f.properties.title || '';
+  m.feature = f;
+  m.on('click', e => {
+    lastMarkerEvent = e.originalEvent;   // remember so the map handler skips this same click
+    openCard(f); highlight(m);
+  });
+  m.addTo(map);
+  markers.push(m);
+});
+
+function highlight(m) {
+  if (selected) selected.setStyle({ radius:9, weight:1.6 });
+  m.setStyle({ radius:12, weight:3 });
+  selected = m;
+}
+
+// detail card (slides in from the left)
+function openCard(f) {
+  const p  = f.properties;
+  const st = STATUS[p.status] || { color:'#555', label:p.status };
+  document.getElementById('panel-title').textContent = p.title || '—';
+  document.getElementById('panel-sub').textContent   = p.subtitle || '';
+  const chip = document.getElementById('panel-status');
+  chip.textContent = st.label;
+  chip.style.background = st.color;
+  document.getElementById('panel-body').innerHTML = p.details.map(d =>
+    `<div class="row"><div class="q">${esc(d[0])}</div><div class="a">${esc(d[1])}</div></div>`
+  ).join('');
+  document.getElementById('panel').classList.add('open');
+}
+function closeCard() {
+  document.getElementById('panel').classList.remove('open');
+  if (selected) { selected.setStyle({ radius:9, weight:1.6 }); selected = null; }
+}
+map.on('click', e => {
+  if (e.originalEvent === lastMarkerEvent) return;  // same physical click, already handled
+  // fallback for browsers where canvas hit-testing fails: open the nearest marker within 14 px
+  let best = null, bestDist = 14;
+  markers.forEach(m => {
+    if (!map.hasLayer(m)) return;
+    const d = map.latLngToContainerPoint(m.getLatLng()).distanceTo(e.containerPoint);
+    if (d < bestDist) { bestDist = d; best = m; }
+  });
+  if (best) { openCard(best.feature); highlight(best); } else { closeCard(); }
+});
+
+// shop search: type to list matches, click (or Enter) to zoom + open the card
+const sInput   = document.getElementById('search-input');
+const sResults = document.getElementById('search-results');
+function renderResults(q) {
+  sResults.innerHTML = '';
+  if (!q.trim()) { sResults.style.display = 'none'; return; }
+  const hits = markers.filter(m => m.title.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 15);
+  hits.forEach(m => {
+    const st  = STATUS[m.status] || { color:'#555' };
+    const div = document.createElement('div');
+    div.className = 's-item';
+    div.innerHTML = `<span class="dot" style="background:${st.color}"></span><span>${esc(m.title)}</span>`;
+    div.onclick = () => pickShop(m);
+    sResults.appendChild(div);
+  });
+  if (!hits.length) sResults.innerHTML = '<div class="s-item none">ບໍ່ພົບ · Not found</div>';
+  sResults.style.display = 'block';
+}
+function pickShop(m) {
+  // if this shop is filtered out (by status or type), switch those filters back on first
+  const cbS = document.querySelector(`#filter-rows input[data-code="${m.status}"]`);
+  const cbT = document.querySelector(`#type-rows input[data-code="${m.biztype}"]`);
+  let changed = false;
+  if (cbS && !cbS.checked) { cbS.checked = true; changed = true; }
+  if (cbT && !cbT.checked) { cbT.checked = true; changed = true; }
+  if (changed) applyFilter();
+  map.setView(m.getLatLng(), Math.max(map.getZoom(), 16));
+  openCard(m.feature);
+  highlight(m);
+  sResults.style.display = 'none';
+  sInput.value = m.title;
+}
+sInput.addEventListener('input', e => renderResults(e.target.value));
+sInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const f = sResults.querySelector('.s-item:not(.none)'); if (f) f.click(); }
+});
+document.addEventListener('click', e => { if (!e.target.closest('#search')) sResults.style.display = 'none'; });
+
+// filters: status (with legend colors) + business type; a marker must pass BOTH to stay visible
+function applyFilter() {
+  const sOn = new Set([...document.querySelectorAll('#filter-rows input:checked')].map(i => i.dataset.code));
+  const tOn = new Set([...document.querySelectorAll('#type-rows input:checked')].map(i => i.dataset.code));
+  markers.forEach(m => {
+    if (sOn.has(m.status) && tOn.has(m.biztype)) {
+      m.addTo(map);
+    } else {
+      map.removeLayer(m);
+      if (m === selected) closeCard();
+    }
+  });
+}
+const statusRows = document.getElementById('filter-rows');
+Object.entries(STATUS).forEach(([code, st]) => {
+  const n = markers.filter(m => m.status === code).length;
+  const label = document.createElement('label');
+  label.innerHTML = `<input type="checkbox" checked data-code="${code}">
+    <span class="dot" style="background:${st.color}"></span>
+    <span>${esc(st.label)}</span> <span class="cnt">(${n})</span>`;
+  label.querySelector('input').addEventListener('change', applyFilter);
+  statusRows.appendChild(label);
+});
+const typeRows = document.getElementById('type-rows');
+Object.entries(TYPES).forEach(([code, name]) => {
+  const n = markers.filter(m => m.biztype === code).length;
+  const label = document.createElement('label');
+  label.innerHTML = `<input type="checkbox" checked data-code="${code}">
+    <span>${esc(name)}</span> <span class="cnt">(${n})</span>`;
+  label.querySelector('input').addEventListener('change', applyFilter);
+  typeRows.appendChild(label);
+});
+const filterBox    = document.getElementById('filter');
+const filterToggle = document.getElementById('filter-toggle');
+filterToggle.addEventListener('click', () => {
+  const collapsed = filterBox.classList.toggle('collapsed');
+  filterToggle.textContent = collapsed ? '🔽' : '–';
+});
+</script>
+</body>
+</html>
