@@ -179,13 +179,16 @@ def build(form_asset, raw_records):
 
     template = (HERE / "template.html").read_text(encoding="utf-8")
     districts = (HERE / "assets" / "districts_lpb.geojson").read_text(encoding="utf-8")
-    roads_file = HERE / "assets" / "roads_lpb.geojson"
-    roads = roads_file.read_text(encoding="utf-8") if roads_file.exists() else '{"type":"FeatureCollection","features":[]}'
+    def _asset(name):
+        p = HERE / "assets" / name
+        return p.read_text(encoding="utf-8") if p.exists() else '{"type":"FeatureCollection","features":[]}'
+
     html = (template
             .replace("__STATUS__",    json.dumps(STATUS, ensure_ascii=False))
             .replace("__TYPES__",     json.dumps(types, ensure_ascii=False))
             .replace("__POINTS__",    json.dumps(points_fc, ensure_ascii=False))
-            .replace("__ROADS__",     roads)
+            .replace("__ROADS__",     _asset("roads_lpb.geojson"))
+            .replace("__VILLAGES__",  _asset("villages_lpb.geojson"))
             .replace("__DISTRICTS__", districts))
 
     if PASSWORD:

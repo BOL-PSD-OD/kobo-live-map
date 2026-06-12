@@ -94,6 +94,7 @@ const TYPES     = __TYPES__;
 const POINTS    = __POINTS__;
 const DISTRICTS = __DISTRICTS__;
 const ROADS     = __ROADS__;
+const VILLAGES  = __VILLAGES__;
 
 const map = L.map('map', { preferCanvas: true });  // canvas renderer: more robust than SVG in embedded browsers
 
@@ -119,6 +120,34 @@ const dLayer = L.geoJSON(DISTRICTS, {           // district boundaries (no names
 const roadsLayer = L.geoJSON(ROADS, {           // survey roads layer
   style: { color:'#b45309', weight:1.1, opacity:0.75 },
   interactive: false
+}).addTo(map);
+
+// village areas: invisible until hovered — hovering highlights ONE village (faint fill),
+// clicking shows a small popup with the village + district names (Lao).
+// Shop markers keep priority: clicks within 14 px of a marker open the shop card instead.
+const VILLAGE_IDLE  = { stroke: false, fill: true, fillColor: '#3b82f6', fillOpacity: 0 };
+const VILLAGE_HOVER = { stroke: true, color: '#1d4ed8', weight: 1.5, opacity: 0.9,
+                        fill: true, fillColor: '#3b82f6', fillOpacity: 0.18 };
+function nearMarker(e) {
+  return markers.some(m => map.hasLayer(m) &&
+    map.latLngToContainerPoint(m.getLatLng()).distanceTo(e.containerPoint) < 14);
+}
+const vLayer = L.geoJSON(VILLAGES, {
+  style: VILLAGE_IDLE,
+  onEachFeature: (f, l) => {
+    l.on('mouseover', () => l.setStyle(VILLAGE_HOVER));
+    l.on('mouseout',  () => l.setStyle(VILLAGE_IDLE));
+    l.on('click', e => {
+      if (nearMarker(e)) return;            // the map handler opens the shop card instead
+      const p = f.properties;
+      L.popup({ closeButton: false, offset: [0, -4] })
+        .setLatLng(e.latlng)
+        .setContent(`<div style="font-size:13.5px;line-height:1.5">
+            <b>🏘️ ${esc(p.l_vname || p.vname)}</b><br>
+            <span style="color:#666">${esc(p.l_dname || p.dname)}</span></div>`)
+        .openOn(map);
+    });
+  }
 }).addTo(map);
 
 L.control.layers({
