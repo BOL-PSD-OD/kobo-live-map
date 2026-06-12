@@ -103,15 +103,17 @@ def fmt(v):
 
 
 def latlon(rec):
-    # prefer _geolocation [lat, lon]; fall back to the "lat lon alt prec" geopoint string
-    g = rec.get("_geolocation")
-    if isinstance(g, list) and len(g) >= 2 and g[0] is not None and g[1] is not None:
-        return float(g[0]), float(g[1])
+    # use the "geopoint" question (the surveyed shop location, "lat lon alt prec").
+    # NOTE: do NOT prefer Kobo's _geolocation — it mirrors the FIRST geo question in
+    # the form, which here is start-geopoint (where the enumerator OPENED the form).
     raw = fmt(rec.get("geopoint"))
     if raw:
         parts = raw.split()
         if len(parts) >= 2:
             return float(parts[0]), float(parts[1])
+    g = rec.get("_geolocation")
+    if isinstance(g, list) and len(g) >= 2 and g[0] is not None and g[1] is not None:
+        return float(g[0]), float(g[1])
     return None, None
 
 
