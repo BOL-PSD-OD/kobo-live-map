@@ -203,7 +203,7 @@ def build(form_asset, raw_records):
     print(f"saved: {out} ({out.stat().st_size / 1024:.0f} KB)")
 
 
-# auto-lock: after 30 idle minutes, forget the stored password and return to the lock screen
+# auto-lock: after 30 idle minutes, reload back to the lock screen (password must be re-entered)
 IDLE_LOCK_JS = """<script>
 (() => {
   const LIMIT_MS = 30 * 60 * 1000;
@@ -212,10 +212,7 @@ IDLE_LOCK_JS = """<script>
   ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(ev =>
     addEventListener(ev, bump, { passive: true }));
   setInterval(() => {
-    if (Date.now() - last >= LIMIT_MS) {
-      try { localStorage.removeItem('map_pw'); } catch (e) {}
-      location.reload();
-    }
+    if (Date.now() - last >= LIMIT_MS) location.reload();
   }, 30000);
 })();
 </script>"""
