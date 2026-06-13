@@ -183,12 +183,15 @@ def build(form_asset, raw_records):
         p = HERE / "assets" / name
         return p.read_text(encoding="utf-8") if p.exists() else '{"type":"FeatureCollection","features":[]}'
 
+    logo_file = HERE / "assets" / "odf_logo_b64.txt"
+    odf_logo = logo_file.read_text(encoding="utf-8").strip() if logo_file.exists() else ""
     html = (template
             .replace("__STATUS__",    json.dumps(STATUS, ensure_ascii=False))
             .replace("__TYPES__",     json.dumps(types, ensure_ascii=False))
             .replace("__POINTS__",    json.dumps(points_fc, ensure_ascii=False))
             .replace("__ROADS__",     _asset("roads_lpb.geojson"))
             .replace("__VILLAGES__",  _asset("villages_lpb.geojson"))
+            .replace("__ODF_LOGO__",  odf_logo)
             .replace("__DISTRICTS__", districts))
 
     if PASSWORD:
