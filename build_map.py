@@ -103,6 +103,13 @@ def fmt(v):
     return s if s and s.lower() != "nan" else None
 
 
+def strip_num(label):
+    # drop the form's own question number prefix (e.g. "2.1 ", "1.4 ") so the card
+    # can renumber every row sequentially (1., 2., 3., ...)
+    import re
+    return re.sub(r"^\d+(\.\d+)*[.\s]*", "", str(label)).strip()
+
+
 def latlon(rec):
     # use the "geopoint" question (the surveyed shop location, "lat lon alt prec").
     # NOTE: do NOT prefer Kobo's _geolocation — it mirrors the FIRST geo question in
@@ -150,9 +157,11 @@ def build(form_asset, raw_records):
             ans = STATUS.get(st, {}).get("label", st) if q == "S2_Q7" else answer_text(rec, q, multi)
             details.append([qlabel(q), ans])
         s3 = sum(1 for q in S3_COLS if fmt(rec.get(q)) == "1")
-        details.append(["ພາກທີ 3: ຄຳຕອບ \"ແມ່ນ\" · Section 3 \"Yes\" answers (S3_Q1–S3_Q5)",
+        details.append(["ພາກທີ 3: ຄຳຕອບ \"ແມ່ນ\" · Section 3 \"Yes\" answers",
                         f"{s3} / {len(S3_COLS)}"])
         details.append([qlabel("S1_Q4"), answer_text(rec, "S1_Q4")])
+        # renumber every row 1., 2., 3., ... (drop the form's own 2.1/1.4 prefixes)
+        details = [[f"{i}. {strip_num(lbl)}", ans] for i, (lbl, ans) in enumerate(details, 1)]
         features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [lon, lat]},
