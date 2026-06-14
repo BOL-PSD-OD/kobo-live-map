@@ -45,11 +45,26 @@
             max-height:calc(100vh - 40px); overflow-y:auto; }
   #filter-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
   #filter-head h4 { margin:0; font-size:13px; }
-  #filter-toggle { border:0; background:#eee; border-radius:6px; width:22px; height:22px;
-                   cursor:pointer; font-size:12px; line-height:1; flex:none; }
   #filter.collapsed { padding:6px 8px; }
   #filter.collapsed #filter-body, #filter.collapsed #filter-head h4 { display:none; }
-  #filter.collapsed #filter-toggle { width:30px; height:30px; font-size:15px; }
+  /* animated hamburger <-> X toggle (adapted from Uiverse.io by ArturCodeCraft) */
+  #filter-toggle { border:0; background:none; padding:5px; width:30px; height:30px;
+                   cursor:pointer; flex:none; }
+  #filter-toggle span { display:block; width:100%; height:2px; border-radius:2px;
+                        background-color:#007aff; transition:background-color .4s; position:relative; }
+  #filter-toggle span + span { margin-top:5px; }
+  #filter-toggle span:nth-child(1) { animation:ease .6s mi-top-2 forwards; }
+  #filter-toggle span:nth-child(2) { animation:ease .6s mi-scaled-2 forwards; }
+  #filter-toggle span:nth-child(3) { animation:ease .6s mi-bottom-2 forwards; }
+  #filter-toggle.open span:nth-child(1) { animation:ease .6s mi-top forwards; }
+  #filter-toggle.open span:nth-child(2) { animation:ease .6s mi-scaled forwards; }
+  #filter-toggle.open span:nth-child(3) { animation:ease .6s mi-bottom forwards; background-color:#ff3b30; }
+  @keyframes mi-top      { 0%{top:0;transform:rotate(0)}      50%{top:7px;transform:rotate(0)}      100%{top:7px;transform:rotate(45deg)} }
+  @keyframes mi-top-2    { 0%{top:7px;transform:rotate(45deg)} 50%{top:7px;transform:rotate(0)}      100%{top:0;transform:rotate(0)} }
+  @keyframes mi-bottom   { 0%{bottom:0;transform:rotate(0)}   50%{bottom:7px;transform:rotate(0)}   100%{bottom:7px;transform:rotate(135deg)} }
+  @keyframes mi-bottom-2 { 0%{bottom:7px;transform:rotate(135deg)} 50%{bottom:7px;transform:rotate(0)} 100%{bottom:0;transform:rotate(0)} }
+  @keyframes mi-scaled   { 50%{transform:scale(0)} 100%{transform:scale(0)} }
+  @keyframes mi-scaled-2 { 0%{transform:scale(0)} 50%{transform:scale(0)} 100%{transform:scale(1)} }
   .f-title { font-size:12px; font-weight:700; color:#444; margin:9px 0 3px; }
   #filter label { display:flex; align-items:center; gap:7px; padding:3px 0; cursor:pointer; white-space:nowrap; }
   .dot { width:13px; height:13px; border-radius:50%; border:1.5px solid #fff;
@@ -91,7 +106,9 @@
 <div id="filter">
   <div id="filter-head">
     <h4>ຕົວກອງ · Filters</h4>
-    <button id="filter-toggle" title="Collapse / Expand">–</button>
+    <button id="filter-toggle" class="open" title="Collapse / Expand" aria-label="Toggle filters">
+      <span></span><span></span><span></span>
+    </button>
   </div>
   <div id="filter-body">
     <div class="f-title">ສະຖານະບັນຊີ · Account status</div>
@@ -310,7 +327,7 @@ const filterBox    = document.getElementById('filter');
 const filterToggle = document.getElementById('filter-toggle');
 filterToggle.addEventListener('click', () => {
   const collapsed = filterBox.classList.toggle('collapsed');
-  filterToggle.textContent = collapsed ? '🔽' : '–';
+  filterToggle.classList.toggle('open', !collapsed);  // X when expanded, hamburger when collapsed
 });
 </script>
 </body>
