@@ -19,6 +19,8 @@
   #pw { width:100%; box-sizing:border-box; padding:11px 44px 11px 13px; font-size:15px;
         border:1.5px solid #cbd5e1; border-radius:8px; outline:none; font-family:inherit; }
   #pw:focus { border-color:#2563eb; }
+  /* hide the browser's built-in password reveal/clear (Edge) so only our eye shows */
+  #pw::-ms-reveal, #pw::-ms-clear { display:none; }
   #pw-eye { position:absolute; top:50%; right:6px; transform:translateY(-50%); width:32px; height:32px;
             margin:0; padding:0; background:none; border:0; color:#64748b; cursor:pointer;
             display:flex; align-items:center; justify-content:center; }
