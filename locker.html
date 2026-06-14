@@ -3,21 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🔒 ແຜນທີ່ສຳຫຼວດ · Survey Map</title>
+<title>ແຜນທີ່ສຳຫຼວດ · Survey Map</title>
 <style>
   html, body { margin:0; height:100%; font-family:'Segoe UI','Noto Sans Lao',sans-serif;
                background:#1e293b; display:flex; align-items:center; justify-content:center; }
   .box { background:#fff; border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,.4);
          padding:34px 36px 28px; width:min(380px, 88vw); text-align:center; }
-  h2 { margin:0 0 4px; font-size:19px; color:#111; }
+  h2 { margin:0 0 4px; font-size:19px; color:#111; display:flex; align-items:center;
+       justify-content:center; gap:8px; }
+  h2 svg { width:20px; height:20px; color:#2563eb; flex:none; }
   .sub { color:#666; font-size:13px; margin:0 0 20px; }
+  #err:not([hidden]) { display:flex; align-items:center; justify-content:center; gap:6px; }
+  #err svg { width:16px; height:16px; flex:none; }
   .pw-wrap { position:relative; }
   #pw { width:100%; box-sizing:border-box; padding:11px 44px 11px 13px; font-size:15px;
         border:1.5px solid #cbd5e1; border-radius:8px; outline:none; font-family:inherit; }
   #pw:focus { border-color:#2563eb; }
   #pw-eye { position:absolute; top:50%; right:6px; transform:translateY(-50%); width:32px; height:32px;
-            margin:0; padding:0; background:none; border:0; color:#64748b; font-size:18px;
-            line-height:1; cursor:pointer; }
+            margin:0; padding:0; background:none; border:0; color:#64748b; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; }
   #pw-eye:hover { color:#2563eb; }
   #go { width:100%; margin-top:16px; padding:11px; font-size:15px; font-weight:600; color:#fff;
         background:#2563eb; border:0; border-radius:8px; cursor:pointer; font-family:inherit; }
@@ -28,14 +32,14 @@
 </head>
 <body>
 <div class="box">
-  <h2>🔒 ແຜນທີ່ສຳຫຼວດ — ຫຼວງພະບາງ</h2>
+  <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>ແຜນທີ່ສຳຫຼວດ — ຫຼວງພະບາງ</h2>
   <p class="sub">Survey Map — Luang Prabang</p>
   <div class="pw-wrap">
     <input type="password" id="pw" placeholder="ໃສ່ລະຫັດຜ່ານ · Enter password" autofocus>
-    <button type="button" id="pw-eye" title="ສະແດງ/ເຊື່ອງລະຫັດ · Show/hide password" aria-label="Show or hide password">👁</button>
+    <button type="button" id="pw-eye" title="ສະແດງ/ເຊື່ອງລະຫັດ · Show/hide password" aria-label="Show or hide password"></button>
   </div>
   <button id="go">ເປີດແຜນທີ່ · Open map</button>
-  <p id="err" hidden>❌ ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ · Wrong password</p>
+  <p id="err" hidden><svg viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><span>ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ · Wrong password</span></p>
   <p class="hint">ຂໍລະຫັດຜ່ານຈາກຜູ້ດູແລໂຄງການ · Ask the project owner for the password</p>
 </div>
 
@@ -73,11 +77,14 @@ async function submit() {
 $('go').addEventListener('click', submit);
 $('pw').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
 
-// eye toggle: show/hide the typed password
+// eye toggle: show/hide the typed password (SVG eye / eye-off)
+const EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+$('pw-eye').innerHTML = EYE;
 $('pw-eye').addEventListener('click', () => {
   const shown = $('pw').type === 'text';
   $('pw').type = shown ? 'password' : 'text';
-  $('pw-eye').textContent = shown ? '👁' : '🙈';
+  $('pw-eye').innerHTML = shown ? EYE : EYE_OFF;
   $('pw').focus();
 });
 </script>
