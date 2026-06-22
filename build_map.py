@@ -54,13 +54,13 @@ CARD_FIELDS = [("S2_Q1", False), ("phone", False),
 PSP_COLS = ["S3_Q10", "S3_Q11", "S3_Q13"]   # bank/PSP lists (different payment branches)
 S4_COLS = ["S4_Q1", "S4_Q2", "S4_Q3", "S4_Q4"]   # awareness questions ("1" = heard before)
 
-# S3_Q17 = SME enterprise size — show these fixed labels (4 levels, Lao SME law)
-# regardless of the form's stored choice text.
+# S3_Q17: append the SME enterprise-size name (4 levels, Lao SME law) to the
+# form's revenue-range label -> "400 – 4,500 ລ້ານກີບ - ວິສາຫະກິດຂະໜາດນ້ອຍ".
 SME_SIZE = {
-    "1": "ຈຸລະວິສາຫະກິດ · Micro",
-    "2": "ວິສາຫະກິດຂະໜາດນ້ອຍ · Small",
-    "3": "ວິສາຫະກິດຂະໜາດກາງ · Medium",
-    "4": "ວິສາຫະກິດຂະໜາດໃຫຍ່ · Large",
+    "1": "ຈຸລະວິສາຫະກິດ",
+    "2": "ວິສາຫະກິດຂະໜາດນ້ອຍ",
+    "3": "ວິສາຫະກິດຂະໜາດກາງ",
+    "4": "ວິສາຫະກິດຂະໜາດໃຫຍ່",
 }
 
 
@@ -223,7 +223,9 @@ def build(form_asset, raw_records):
         details = []
         for q, multi in CARD_FIELDS:
             if q == "S3_Q17":
-                ans = SME_SIZE.get(fmt(rec.get("S3_Q17")), answer_text(rec, q, multi))
+                base = answer_text(rec, q, multi)   # revenue range from the form
+                size = SME_SIZE.get(fmt(rec.get("S3_Q17")))
+                ans = (base + " - " + size) if (size and base != "—") else base
             else:
                 ans = answer_text(rec, q, multi)
             details.append([qlabel(q), ans])
