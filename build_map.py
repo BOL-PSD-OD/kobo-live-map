@@ -1,7 +1,12 @@
-"""Build the survey map from live KoboToolbox data.
+"""Build the survey map from live KoboToolbox data (NEW form).
 
 Fetches submissions + the form definition (Lao labels) from the Kobo API,
 then renders template.html into site/index.html as a self-contained map.
+
+Account status is DERIVED (5 colours) from the new form's payment questions
+S3_Q7 / S3_Q9 / S3_Q12 / S3_Q15 — see derive_status() below, which mirrors
+store_master/status.py and docs/store-survey-overview.md. (Kept inline so this
+folder stays a self-contained repo for GitHub Actions.)
 
 Environment variables:
   KOBO_TOKEN      KoboToolbox API token  (Account Settings -> Security -> API Key)
@@ -23,20 +28,25 @@ TOKEN = os.environ.get("KOBO_TOKEN", "")
 UID = os.environ.get("KOBO_ASSET_UID", "")
 PASSWORD = os.environ.get("MAP_PASSWORD", "")  # when set, the published page is AES-encrypted
 
-# account status (S2_Q7): label + dark-tone color
-STATUS = {  # 1=has account, 2=opening in progress, 3=no account
-    "1": {"label": "ມີບັນຊີ · Has account",                          "color": "#1b5e20"},
-    "2": {"label": "ກໍາລັງດໍາເນີນການເປີດບັນຊີ · Opening in progress", "color": "#b8860b"},
-    "3": {"label": "ບໍ່ມີບັນຊີ · No account",                         "color": "#b71c1c"},
+# Derived 5-colour status: key -> label + marker colour.
+STATUS = {
+    "green":   {"label": "ໃຊ້ບໍລິການພາຍໃນແລ້ວ · In domestic system",        "color": "#1b5e20"},
+    "orange":  {"label": "ຍັງບໍ່ໃຊ້ · ສົນໃຈ · Not yet · interested",          "color": "#e8820c"},
+    "red":     {"label": "ຍັງບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Not yet · not interested",    "color": "#c62828"},
+    "brown":   {"label": "ຮັບຕ່າງປະເທດນອກລະບົບ · Foreign outside system",     "color": "#6d4c41"},
+    "purple":  {"label": "ຮັບພາຍໃນ ບໍ່ມີ QR · Domestic only · no QR",         "color": "#6a1b9a"},
+    "unknown": {"label": "ບໍ່ລະບຸ · Unknown",                                "color": "#9e9e9e"},
 }
-FALLBACK_LABELS = {"S2_Q7": "ສະຖານະບັນຊີ · Account status",
-                   "S2_Q9": "ເມືອງ · District",
-                   "S2_Q10": "ບ້ານ · Village"}
-# card order: (column, is multi-select?)
-CARD_FIELDS = [("S2_Q1", False), ("S2_Q2", False), ("S2_Q3", False), ("S2_Q4", False),
-               ("S2_Q5", False), ("S2_Q6", True),  ("S2_Q7", False), ("S2_Q8", True),
-               ("S2_Q9", False), ("S2_Q10", False), ("S2_Q11", False)]
-S3_COLS = ["S3_Q1", "S3_Q2", "S3_Q3", "S3_Q4", "S3_Q5"]
+
+FALLBACK_LABELS = {"S3_Q3": "ເມືອງ · District", "S3_Q4": "ບ້ານ · Village"}
+
+# detail-card field order: (column, is multi-select?)
+CARD_FIELDS = [("S2_Q1", False), ("phone", False),
+               ("S3_Q1", False), ("S3_Q3", False), ("S3_Q4", False), ("S3_Q6", False),
+               ("S3_Q7", True),  ("S3_Q9", True),  ("S3_Q8", True),  ("S3_Q14", True),
+               ("S3_Q12", False), ("S3_Q15", False), ("S3_Q17", False)]
+PSP_COLS = ["S3_Q10", "S3_Q11", "S3_Q13"]   # bank/PSP lists (different payment branches)
+S4_COLS = ["S4_Q1", "S4_Q2", "S4_Q3", "S4_Q4"]   # awareness questions ("1" = heard before)
 
 
 def api_get(url):
@@ -92,7 +102,7 @@ def parse_form(asset):
 
 
 def norm(rec):
-    # API record keys may include group prefixes ("Section_2/S2_Q1") -> strip them
+    # API record keys may include group prefixes ("Section_3/S3_Q1") -> strip them
     return {k.split("/")[-1]: v for k, v in rec.items()}
 
 
@@ -103,8 +113,32 @@ def fmt(v):
     return s if s and s.lower() != "nan" else None
 
 
+def codeset(rec, q):
+    """select_multiple value -> set of codes (Kobo stores them space-separated)."""
+    raw = fmt(rec.get(q))
+    return set(raw.split()) if raw else set()
+
+
+def derive_status(acquirer, qr, use_domestic, interested):
+    """5-colour status. acquirer/qr: sets of codes; use_domestic/interested: '1'/'0'/None.
+    Mirrors store_master/status.py (kept inline to keep this repo self-contained)."""
+    acquirer = set(acquirer or [])
+    qr = set(qr or [])
+    dom = "1" in acquirer
+    foreign = "0" in acquirer
+    if dom and foreign:
+        return "green" if use_domestic == "1" else "brown"
+    if foreign:
+        if use_domestic == "1":
+            return "green"
+        return "orange" if interested == "1" else "red"
+    if dom:
+        return "green" if (qr & {"1", "2"}) else "purple"
+    return "unknown"
+
+
 def strip_num(label):
-    # drop the form's own question number prefix (e.g. "2.1 ", "1.4 ") so the card
+    # drop the form's own question number prefix (e.g. "3.1 ", "2.7 ") so the card
     # can renumber every row sequentially (1., 2., 3., ...)
     import re
     return re.sub(r"^\d+(\.\d+)*[.\s]*", "", str(label)).strip()
@@ -144,6 +178,22 @@ def build(form_asset, raw_records):
             txt = f"{txt} — {oth}" if txt else oth
         return txt if txt is not None else "—"
 
+    def psp_text(rec):
+        lookup = choices.get("psp", {})
+        seen, out = set(), []
+        for q in PSP_COLS:
+            raw = fmt(rec.get(q))
+            if not raw:
+                continue
+            for c in raw.split():
+                if c not in seen:
+                    seen.add(c)
+                    out.append(lookup.get(c, c))
+            oth = fmt(rec.get(f"{q}_oth"))
+            if oth and oth not in out:
+                out.append(oth)
+        return ", ".join(out) if out else "—"
+
     features, skipped = [], 0
     for raw in raw_records:
         rec = norm(raw)
@@ -151,31 +201,35 @@ def build(form_asset, raw_records):
         if lat is None:
             skipped += 1
             continue
-        st = fmt(rec.get("S2_Q7")) or "?"
-        details = []
-        for q, multi in CARD_FIELDS:
-            ans = STATUS.get(st, {}).get("label", st) if q == "S2_Q7" else answer_text(rec, q, multi)
-            details.append([qlabel(q), ans])
-        s3 = sum(1 for q in S3_COLS if fmt(rec.get(q)) == "1")
-        details.append(["ພາກທີ 3: ຄຳຕອບ \"ແມ່ນ\" · Section 3 \"Yes\" answers",
-                        f"{s3} / {len(S3_COLS)}"])
-        details.append([qlabel("S1_Q4"), answer_text(rec, "S1_Q4")])
-        # renumber every row 1., 2., 3., ... (drop the form's own 2.1/1.4 prefixes)
+
+        status = derive_status(codeset(rec, "S3_Q7"), codeset(rec, "S3_Q9"),
+                               fmt(rec.get("S3_Q12")), fmt(rec.get("S3_Q15")))
+
+        details = [[qlabel(q), answer_text(rec, q, multi)] for q, multi in CARD_FIELDS]
+        details.append(["ທະນາຄານ/ຜູ້ໃຫ້ບໍລິການ · Bank / PSP", psp_text(rec)])
+        s4 = sum(1 for q in S4_COLS if fmt(rec.get(q)) == "1")
+        details.append(["ການຮັບຮູ້ລະບຽບການ · Awareness (Section 4)",
+                        f"{s4} / {len(S4_COLS)}"])
+        # renumber every row 1., 2., 3., ... (drop the form's own 3.1/2.7 prefixes)
         details = [[f"{i}. {strip_num(lbl)}", ans] for i, (lbl, ans) in enumerate(details, 1)]
+
+        code = fmt(rec.get("S3_Q2"))
+        ref = code if (code and code != "other_shop") else "ໃໝ່ · new"
+        title = fmt(rec.get("S3_Q2_oth")) or answer_text(rec, "S3_Q2")
         features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [lon, lat]},
             "properties": {
-                "status":  st,
-                "biztype": fmt(rec.get("S2_Q1")) or "?",
-                "title":   fmt(rec.get("S2_Q2_oth")) or answer_text(rec, "S2_Q2"),
-                "subtitle": f"ID {fmt(rec.get('_id'))} · Submitted {fmt(rec.get('_submission_time'))}",
+                "status":  status,
+                "biztype": fmt(rec.get("S3_Q1")) or "?",
+                "title":   title,
+                "subtitle": f"{ref} · {fmt(rec.get('_submission_time')) or ''}",
                 "details": details,
             },
         })
 
     # business-type filter entries: form order, only types present in the data
-    biz_choices = choices.get(qlist.get("S2_Q1"), {})
+    biz_choices = choices.get(qlist.get("S3_Q1"), {})
     present = {f["properties"]["biztype"] for f in features}
     types = {c: lab for c, lab in biz_choices.items() if c in present}
     for c in sorted(present - set(types)):
