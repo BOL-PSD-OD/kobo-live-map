@@ -28,14 +28,20 @@ TOKEN = os.environ.get("KOBO_TOKEN", "")
 UID = os.environ.get("KOBO_ASSET_UID", "")
 PASSWORD = os.environ.get("MAP_PASSWORD", "")  # when set, the published page is AES-encrypted
 
-# Derived 5-colour status: key -> label + marker colour.
+# Derived 5-colour status: key -> label + marker colour + hover explanation (desc).
 STATUS = {
-    "green":   {"label": "ໃຊ້ບໍລິການພາຍໃນແລ້ວ · In domestic system",        "color": "#1b5e20"},
-    "orange":  {"label": "ຍັງບໍ່ໃຊ້ · ສົນໃຈ · Not yet · interested",          "color": "#e8820c"},
-    "red":     {"label": "ຍັງບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Not yet · not interested",    "color": "#c62828"},
-    "brown":   {"label": "ຮັບຕ່າງປະເທດນອກລະບົບ · Foreign outside system",     "color": "#6d4c41"},
-    "purple":  {"label": "ຮັບພາຍໃນ ບໍ່ມີ QR · Domestic only · no QR",         "color": "#6a1b9a"},
-    "unknown": {"label": "ບໍ່ລະບຸ · Unknown",                                "color": "#9e9e9e"},
+    "green":   {"label": "ໃຊ້ບໍລິການພາຍໃນແລ້ວ · In domestic system",        "color": "#1b5e20",
+                "desc": "ໃຊ້ PSP/ບໍລິການພາຍໃນແລ້ວ ຫຼື ມີ QR ພາຍໃນ — ຢູ່ໃນລະບົບແລ້ວ (ບໍ່ຕ້ອງສົ່ງ PSP) · Already in the domestic system"},
+    "orange":  {"label": "ຍັງບໍ່ໃຊ້ · ສົນໃຈ · Not yet · interested",          "color": "#e8820c",
+                "desc": "ຮັບເງິນຕ່າງປະເທດ ແຕ່ຍັງບໍ່ໃຊ້ບໍລິການພາຍໃນ · ສົນໃຈເຂົ້າຮ່ວມ → ສົ່ງໃຫ້ PSP · Receives foreign, not yet using domestic, interested → send to PSP"},
+    "red":     {"label": "ຍັງບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Not yet · not interested",    "color": "#c62828",
+                "desc": "ຮັບເງິນຕ່າງປະເທດ ແຕ່ຍັງບໍ່ໃຊ້ບໍລິການພາຍໃນ · ບໍ່ສົນໃຈ → ສົ່ງໃຫ້ PSP (ມີອຸປະສັກ) · Receives foreign, not using domestic, not interested → send to PSP"},
+    "brown":   {"label": "ຮັບຕ່າງປະເທດນອກລະບົບ · Foreign outside system",     "color": "#6d4c41",
+                "desc": "ຮັບທັງພາຍໃນ ແລະ ຕ່າງປະເທດ ແຕ່ເງິນຕ່າງປະເທດຍັງບໍ່ຜ່ານ PSP ພາຍໃນ → ສົ່ງໃຫ້ PSP · Receives both, but foreign income still bypasses the domestic system → send to PSP"},
+    "purple":  {"label": "ຮັບພາຍໃນ ບໍ່ມີ QR · Domestic only · no QR",         "color": "#6a1b9a",
+                "desc": "ຮັບແຕ່ພາຍໃນ ແລະ ຍັງບໍ່ມີ QR ພາຍໃນ → ສົ່ງໃຫ້ PSP ຊວນສະໝັກ QR/ບັນຊີ · Domestic only, no QR yet → send to PSP to onboard"},
+    "unknown": {"label": "ບໍ່ລະບຸ · Unknown",                                "color": "#9e9e9e",
+                "desc": "ຂໍ້ມູນບໍ່ຄົບ — ບໍ່ສາມາດລະບຸສະຖານະໄດ້ · Incomplete data — status undetermined"},
 }
 
 FALLBACK_LABELS = {"S3_Q3": "ເມືອງ · District", "S3_Q4": "ບ້ານ · Village"}

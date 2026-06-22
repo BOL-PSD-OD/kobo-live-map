@@ -74,6 +74,12 @@
   .dot { width:13px; height:13px; border-radius:50%; border:1.5px solid #fff;
          box-shadow:0 0 2px rgba(0,0,0,.5); flex:none; }
   .cnt { color:#888; font-size:11.5px; }
+  /* legend info icon: a circled "i"; hover shows the status explanation (native tooltip) */
+  .info-badge { display:inline-flex; align-items:center; justify-content:center;
+                width:15px; height:15px; border-radius:50%; border:1.2px solid #999;
+                color:#777; font:italic 700 10px Georgia, 'Times New Roman', serif;
+                cursor:help; flex:none; margin-left:4px; user-select:none; }
+  .info-badge:hover { border-color:#007aff; color:#007aff; }
   /* floating button: open the data-collection form in a new tab (bottom right) */
   #form-btn { position:absolute; right:16px; bottom:24px; z-index:1100; display:flex;
               align-items:center; gap:9px; padding:10px 16px 10px 12px; background:#fff;
@@ -320,8 +326,13 @@ Object.entries(STATUS).forEach(([code, st]) => {
   const label = document.createElement('label');
   label.innerHTML = `<input type="checkbox" checked data-code="${code}">
     <span class="dot" style="background:${st.color}"></span>
-    <span>${esc(st.label)}</span> <span class="cnt">(${n})</span>`;
+    <span>${esc(st.label)}</span> <span class="cnt">(${n})</span>
+    <span class="info-badge" title="${esc(st.desc || st.label)}">i</span>`;
   label.querySelector('input').addEventListener('change', applyFilter);
+  // hovering the "i" shows the explanation; clicking it must NOT toggle the filter
+  label.querySelector('.info-badge').addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+  });
   statusRows.appendChild(label);
 });
 const typeRows = document.getElementById('type-rows');
