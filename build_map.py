@@ -54,6 +54,15 @@ CARD_FIELDS = [("S2_Q1", False), ("phone", False),
 PSP_COLS = ["S3_Q10", "S3_Q11", "S3_Q13"]   # bank/PSP lists (different payment branches)
 S4_COLS = ["S4_Q1", "S4_Q2", "S4_Q3", "S4_Q4"]   # awareness questions ("1" = heard before)
 
+# S3_Q17 = SME enterprise size — show these fixed labels (4 levels, Lao SME law)
+# regardless of the form's stored choice text.
+SME_SIZE = {
+    "1": "ຈຸລະວິສາຫະກິດ · Micro",
+    "2": "ວິສາຫະກິດຂະໜາດນ້ອຍ · Small",
+    "3": "ວິສາຫະກິດຂະໜາດກາງ · Medium",
+    "4": "ວິສາຫະກິດຂະໜາດໃຫຍ່ · Large",
+}
+
 
 def api_get(url):
     req = urllib.request.Request(url, headers={"Authorization": f"Token {TOKEN}"})
@@ -211,7 +220,13 @@ def build(form_asset, raw_records):
         status = derive_status(codeset(rec, "S3_Q7"), codeset(rec, "S3_Q9"),
                                fmt(rec.get("S3_Q12")), fmt(rec.get("S3_Q15")))
 
-        details = [[qlabel(q), answer_text(rec, q, multi)] for q, multi in CARD_FIELDS]
+        details = []
+        for q, multi in CARD_FIELDS:
+            if q == "S3_Q17":
+                ans = SME_SIZE.get(fmt(rec.get("S3_Q17")), answer_text(rec, q, multi))
+            else:
+                ans = answer_text(rec, q, multi)
+            details.append([qlabel(q), ans])
         details.append(["ທະນາຄານ/ຜູ້ໃຫ້ບໍລິການ · Bank / PSP", psp_text(rec)])
         s4 = sum(1 for q in S4_COLS if fmt(rec.get(q)) == "1")
         details.append(["ການຮັບຮູ້ລະບຽບການ · Awareness (Section 4)",
