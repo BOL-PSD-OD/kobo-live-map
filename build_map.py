@@ -3,8 +3,8 @@
 Fetches submissions + the form definition (Lao labels) from the Kobo API,
 then renders template.html into site/index.html as a self-contained map.
 
-Account status is DERIVED (5 colours) from the new form's payment questions
-S3_Q7 / S3_Q9 / S3_Q12 / S3_Q15 — see derive_status() below, which mirrors
+Account status is DERIVED (9 states) from the new form's payment questions
+S3_Q7 / S3_Q12 / S3_Q15 — see derive_status() below, which mirrors
 store_master/status.py and docs/store-survey-overview.md. (Kept inline so this
 folder stays a self-contained repo for GitHub Actions.)
 
@@ -28,20 +28,33 @@ TOKEN = os.environ.get("KOBO_TOKEN", "")
 UID = os.environ.get("KOBO_ASSET_UID", "")
 PASSWORD = os.environ.get("MAP_PASSWORD", "")  # when set, the published page is AES-encrypted
 
-# Derived 5-colour status: key -> label + marker colour + hover explanation (desc).
+# Derived status (9 states + unknown): key -> label + marker colour + hover desc.
+# Green family = already in the domestic system; the other six = PSP target list.
 STATUS = {
-    "green":   {"label": "ໃຊ້ບໍລິການພາຍໃນແລ້ວ · In domestic system",        "color": "#1b5e20",
-                "desc": "ໃຊ້ PSP/ບໍລິການພາຍໃນແລ້ວ ຫຼື ມີ QR ພາຍໃນ — ຢູ່ໃນລະບົບແລ້ວ (ບໍ່ຕ້ອງສົ່ງ PSP) · Already in the domestic system"},
-    "orange":  {"label": "ຍັງບໍ່ໃຊ້ · ສົນໃຈ · Not yet · interested",          "color": "#e8820c",
-                "desc": "ຮັບເງິນຕ່າງປະເທດ ແຕ່ຍັງບໍ່ໃຊ້ບໍລິການພາຍໃນ · ສົນໃຈເຂົ້າຮ່ວມ → ສົ່ງໃຫ້ PSP · Receives foreign, not yet using domestic, interested → send to PSP"},
-    "red":     {"label": "ຍັງບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Not yet · not interested",    "color": "#c62828",
-                "desc": "ຮັບເງິນຕ່າງປະເທດ ແຕ່ຍັງບໍ່ໃຊ້ບໍລິການພາຍໃນ · ບໍ່ສົນໃຈ → ສົ່ງໃຫ້ PSP (ມີອຸປະສັກ) · Receives foreign, not using domestic, not interested → send to PSP"},
-    "brown":   {"label": "ຮັບຕ່າງປະເທດນອກລະບົບ · Foreign outside system",     "color": "#6d4c41",
-                "desc": "ຮັບທັງພາຍໃນ ແລະ ຕ່າງປະເທດ ແຕ່ເງິນຕ່າງປະເທດຍັງບໍ່ຜ່ານ PSP ພາຍໃນ → ສົ່ງໃຫ້ PSP · Receives both, but foreign income still bypasses the domestic system → send to PSP"},
-    "purple":  {"label": "ຮັບພາຍໃນ ບໍ່ມີ QR · Domestic only · no QR",         "color": "#6a1b9a",
-                "desc": "ຮັບແຕ່ພາຍໃນ ແລະ ຍັງບໍ່ມີ QR ພາຍໃນ → ສົ່ງໃຫ້ PSP ຊວນສະໝັກ QR/ບັນຊີ · Domestic only, no QR yet → send to PSP to onboard"},
-    "unknown": {"label": "ບໍ່ລະບຸ · Unknown",                                "color": "#9e9e9e",
-                "desc": "ຂໍ້ມູນບໍ່ຄົບ — ບໍ່ສາມາດລະບຸສະຖານະໄດ້ · Incomplete data — status undetermined"},
+    # 1-3: both domestic + foreign  ("QR in + QR out")
+    "both_using":    {"label": "ໃນ+ນອກ · ໃຊ້ພາຍໃນ · Both · in system",                  "color": "#2e7d32",
+                      "desc": "ຮັບທັງພາຍໃນ ແລະ ຕ່າງປະເທດ · ໃຊ້ບໍລິການພາຍໃນ (3.12=1) — ຢູ່ໃນລະບົບແລ້ວ · Both acquirers, uses domestic — in system"},
+    "both_int":      {"label": "ໃນ+ນອກ · ບໍ່ໃຊ້ · ສົນໃຈ · Both · not using · interested",   "color": "#f9a825",
+                      "desc": "ຮັບທັງສອງ ແຕ່ບໍ່ໃຊ້ບໍລິການພາຍໃນ (3.12=0) · ສົນໃຈ (3.15=1) → ສົ່ງ PSP · Both, not using domestic, interested → send to PSP"},
+    "both_unint":    {"label": "ໃນ+ນອກ · ບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Both · not using · not interested", "color": "#6d4c41",
+                      "desc": "ຮັບທັງສອງ ແຕ່ບໍ່ໃຊ້ບໍລິການພາຍໃນ · ບໍ່ສົນໃຈ (3.15=0) → ສົ່ງ PSP (ມີອຸປະສັກ) · Both, not using, not interested → send to PSP"},
+    # 4-6: foreign only  ("QR out")
+    "foreign_using": {"label": "ນອກ · ໃຊ້ພາຍໃນ · Foreign · in system",                  "color": "#00897b",
+                      "desc": "ຮັບຕ່າງປະເທດ ແຕ່ໃຊ້ບໍລິການພາຍໃນ (3.12=1) — ຢູ່ໃນລະບົບແລ້ວ · Foreign acquirer but uses domestic — in system"},
+    "foreign_int":   {"label": "ນອກ · ບໍ່ໃຊ້ · ສົນໃຈ · Foreign · not using · interested",   "color": "#fb8c00",
+                      "desc": "ຮັບຕ່າງປະເທດ ບໍ່ໃຊ້ພາຍໃນ · ສົນໃຈ (3.15=1) → ສົ່ງ PSP · Foreign, not using domestic, interested → send to PSP"},
+    "foreign_unint": {"label": "ນອກ · ບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Foreign · not using · not interested", "color": "#c62828",
+                      "desc": "ຮັບຕ່າງປະເທດ ບໍ່ໃຊ້ພາຍໃນ · ບໍ່ສົນໃຈ (3.15=0) → ສົ່ງ PSP (ມີອຸປະສັກ) · Foreign, not using, not interested → send to PSP"},
+    # 7: domestic only  ("QR in")
+    "domestic":      {"label": "ໃນ · ມີ QR ພາຍໃນ · Domestic · in system",               "color": "#1b5e20",
+                      "desc": "ຮັບແຕ່ພາຍໃນ (QR ພາຍໃນ) — ຢູ່ໃນລະບົບແລ້ວ (ບໍ່ຕ້ອງສົ່ງ PSP) · Domestic acquirer only — already in the domestic system"},
+    # 8-9: no payment tool  ("not QR in")
+    "notool_int":    {"label": "ບໍ່ມີເຄື່ອງມື · ສົນໃຈ · No tool · interested",            "color": "#1565c0",
+                      "desc": "ບໍ່ມີເຄື່ອງມືຮັບຊຳລະເລີຍ · ສົນໃຈ (3.15=1) → ສົ່ງ PSP ເປັນເປົ້າໝາຍຕົ້ນໆ · No payment tool, interested → top PSP target"},
+    "notool_unint":  {"label": "ບໍ່ມີເຄື່ອງມື · ບໍ່ສົນໃຈ · No tool · not interested",       "color": "#455a64",
+                      "desc": "ບໍ່ມີເຄື່ອງມືຮັບຊຳລະເລີຍ · ບໍ່ສົນໃຈ (3.15=0) → ສົ່ງ PSP (ມີອຸປະສັກ) · No payment tool, not interested → send to PSP"},
+    "unknown":       {"label": "ບໍ່ລະບຸ · Unknown",                                     "color": "#9e9e9e",
+                      "desc": "ຂໍ້ມູນບໍ່ຄົບ — ບໍ່ສາມາດລະບຸສະຖານະໄດ້ · Incomplete data — status undetermined"},
 }
 
 FALLBACK_LABELS = {"S3_Q3": "ເມືອງ · District", "S3_Q4": "ບ້ານ · Village"}
@@ -135,20 +148,25 @@ def codeset(rec, q):
 
 
 def derive_status(acquirer, qr, use_domestic, interested):
-    """5-colour status. acquirer/qr: sets of codes; use_domestic/interested: '1'/'0'/None.
+    """9-state status = acquirer x use_domestic x interested (qr is data only).
+    acquirer codes: '1' domestic, '2' foreign, '3' no payment tool.
     Mirrors store_master/status.py (kept inline to keep this repo self-contained)."""
     acquirer = set(acquirer or [])
-    qr = set(qr or [])
     dom = "1" in acquirer
-    foreign = "0" in acquirer
+    foreign = "2" in acquirer
+    notool = "3" in acquirer
     if dom and foreign:
-        return "green" if use_domestic == "1" else "brown"
+        if use_domestic == "1":
+            return "both_using"
+        return "both_int" if interested == "1" else "both_unint"
     if foreign:
         if use_domestic == "1":
-            return "green"
-        return "orange" if interested == "1" else "red"
+            return "foreign_using"
+        return "foreign_int" if interested == "1" else "foreign_unint"
     if dom:
-        return "green" if (qr & {"1", "2"}) else "purple"
+        return "domestic"
+    if notool:
+        return "notool_int" if interested == "1" else "notool_unint"
     return "unknown"
 
 
