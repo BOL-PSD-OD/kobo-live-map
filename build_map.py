@@ -32,21 +32,21 @@ PASSWORD = os.environ.get("MAP_PASSWORD", "")  # when set, the published page is
 # Green family = already in the domestic system; the other six = PSP target list.
 STATUS = {
     # 1-3: both domestic + foreign  ("QR in + QR out")
-    "both_using":    {"label": "ໃນ+ນອກ · ໃຊ້ພາຍໃນ · Both · in system",                  "color": "#2e7d32",
+    "both_using":    {"label": "ຮັບຊຳລະພາຍໃນ ແລະ ນອກ · ໃຊ້ພາຍໃນ · Both · in system",       "color": "#2e7d32",
                       "desc": "ຮັບທັງພາຍໃນ ແລະ ຕ່າງປະເທດ · ໃຊ້ບໍລິການພາຍໃນ (3.12=1) — ຢູ່ໃນລະບົບແລ້ວ · Both acquirers, uses domestic — in system"},
-    "both_int":      {"label": "ໃນ+ນອກ · ບໍ່ໃຊ້ · ສົນໃຈ · Both · not using · interested",   "color": "#f9a825",
+    "both_int":      {"label": "ຮັບຊຳລະພາຍໃນ ແລະ ນອກ · ບໍ່ໃຊ້ · ສົນໃຈ · Both · not using · interested", "color": "#f9a825",
                       "desc": "ຮັບທັງສອງ ແຕ່ບໍ່ໃຊ້ບໍລິການພາຍໃນ (3.12=0) · ສົນໃຈ (3.15=1) → ສົ່ງ PSP · Both, not using domestic, interested → send to PSP"},
-    "both_unint":    {"label": "ໃນ+ນອກ · ບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Both · not using · not interested", "color": "#6d4c41",
+    "both_unint":    {"label": "ຮັບຊຳລະພາຍໃນ ແລະ ນອກ · ບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Both · not using · not interested", "color": "#6d4c41",
                       "desc": "ຮັບທັງສອງ ແຕ່ບໍ່ໃຊ້ບໍລິການພາຍໃນ · ບໍ່ສົນໃຈ (3.15=0) → ສົ່ງ PSP (ມີອຸປະສັກ) · Both, not using, not interested → send to PSP"},
     # 4-6: foreign only  ("QR out")
-    "foreign_using": {"label": "ນອກ · ໃຊ້ພາຍໃນ · Foreign · in system",                  "color": "#00897b",
+    "foreign_using": {"label": "ຮັບຊຳລະຕ່າງປະເທດ · ໃຊ້ພາຍໃນ · Foreign · in system",       "color": "#00897b",
                       "desc": "ຮັບຕ່າງປະເທດ ແຕ່ໃຊ້ບໍລິການພາຍໃນ (3.12=1) — ຢູ່ໃນລະບົບແລ້ວ · Foreign acquirer but uses domestic — in system"},
-    "foreign_int":   {"label": "ນອກ · ບໍ່ໃຊ້ · ສົນໃຈ · Foreign · not using · interested",   "color": "#fb8c00",
+    "foreign_int":   {"label": "ຮັບຊຳລະຕ່າງປະເທດ · ບໍ່ໃຊ້ · ສົນໃຈ · Foreign · not using · interested", "color": "#fb8c00",
                       "desc": "ຮັບຕ່າງປະເທດ ບໍ່ໃຊ້ພາຍໃນ · ສົນໃຈ (3.15=1) → ສົ່ງ PSP · Foreign, not using domestic, interested → send to PSP"},
-    "foreign_unint": {"label": "ນອກ · ບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Foreign · not using · not interested", "color": "#c62828",
+    "foreign_unint": {"label": "ຮັບຊຳລະຕ່າງປະເທດ · ບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Foreign · not using · not interested", "color": "#c62828",
                       "desc": "ຮັບຕ່າງປະເທດ ບໍ່ໃຊ້ພາຍໃນ · ບໍ່ສົນໃຈ (3.15=0) → ສົ່ງ PSP (ມີອຸປະສັກ) · Foreign, not using, not interested → send to PSP"},
     # 7: domestic only  ("QR in")
-    "domestic":      {"label": "ໃນ · ມີ QR ພາຍໃນ · Domestic · in system",               "color": "#1b5e20",
+    "domestic":      {"label": "ຮັບຊຳລະພາຍໃນ · ມີ QR ພາຍໃນ · Domestic · in system",        "color": "#1b5e20",
                       "desc": "ຮັບແຕ່ພາຍໃນ (QR ພາຍໃນ) — ຢູ່ໃນລະບົບແລ້ວ (ບໍ່ຕ້ອງສົ່ງ PSP) · Domestic acquirer only — already in the domestic system"},
     # 8-9: no payment tool  ("not QR in")
     "notool_int":    {"label": "ບໍ່ມີເຄື່ອງມື · ສົນໃຈ · No tool · interested",            "color": "#1565c0",
@@ -194,6 +194,13 @@ def latlon(rec):
 
 def build(form_asset, raw_records):
     qlabels, qlist, choices = parse_form(form_asset)
+
+    # Legacy data: the old form used acquirer "0" for foreign (the deployed form
+    # now uses "2"). Alias "0" to the foreign label so old submissions render the
+    # text instead of a bare "0" on the card.
+    acq = choices.get("acquirer")
+    if acq and "0" not in acq:
+        acq["0"] = acq.get("2", "ຮັບຊຳລະຕ່າງປະເທດ · Foreign")
 
     def qlabel(q):
         return qlabels.get(q) or FALLBACK_LABELS.get(q, q)
