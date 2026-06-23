@@ -111,7 +111,7 @@
 <div id="search">
   <svg id="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
        stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-  <input id="search-input" type="text" placeholder="ຄົ້ນຫາຊື່ຮ້ານ · Search shop…" autocomplete="off">
+  <input id="search-input" type="text" placeholder="ຄົ້ນຫາຊື່/ລະຫັດຮ້ານ · Search shop / ID…" autocomplete="off">
   <div id="search-results"></div>
 </div>
 
@@ -224,6 +224,7 @@ POINTS.features.forEach(f => {
   m.status  = f.properties.status;
   m.biztype = f.properties.biztype;
   m.title   = f.properties.title || '';
+  m.store_id = f.properties.store_id || '';
   m.feature = f;
   m.on('click', e => {
     lastMarkerEvent = e.originalEvent;   // remember so the map handler skips this same click
@@ -275,12 +276,14 @@ const sResults = document.getElementById('search-results');
 function renderResults(q) {
   sResults.innerHTML = '';
   if (!q.trim()) { sResults.style.display = 'none'; return; }
-  const hits = markers.filter(m => m.title.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 15);
+  const needle = q.trim().toLowerCase();
+  const hits = markers.filter(m => m.title.toLowerCase().includes(needle)
+                               || m.store_id.toLowerCase().includes(needle)).slice(0, 15);
   hits.forEach(m => {
     const st  = STATUS[m.status] || { color:'#555' };
     const div = document.createElement('div');
     div.className = 's-item';
-    div.innerHTML = `<span class="dot" style="background:${st.color}"></span><span>${esc(m.title)}</span>`;
+    div.innerHTML = `<span class="dot" style="background:${st.color}"></span><span><b>${esc(m.store_id)}</b> · ${esc(m.title)}</span>`;
     div.onclick = () => pickShop(m);
     sResults.appendChild(div);
   });

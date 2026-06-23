@@ -59,6 +59,11 @@ STATUS = {
 
 FALLBACK_LABELS = {"S3_Q3": "ເມືອງ · District", "S3_Q4": "ບ້ານ · Village"}
 
+# Business type (S3_Q1) -> Store ID prefix for non-catalog ("other") shops.
+# Mirrors store_master/constants.py PREFIX_BY_BIZ.
+PREFIX_BY_BIZ = {"tour": "T", "hotel": "H", "restaurant": "R", "spa": "M",
+                 "souvenir": "G", "night_market": "N", "oth_biz": "O"}
+
 # detail-card field order: (column, is multi-select?)
 CARD_FIELDS = [("S2_Q1", False), ("phone", False),
                ("S3_Q1", False), ("S3_Q3", False), ("S3_Q4", False), ("S3_Q6", False),
@@ -192,6 +197,35 @@ def latlon(rec):
     return None, None
 
 
+def assign_store_ids(raw_records, choices):
+    """Map each submission key (_uuid, or _id fallback) -> Store ID.
+
+    Catalog shops keep their S3_Q2 code (e.g. T001 / H010); 'other' shops get
+    <prefix><nnn> by business type, continuing after the catalog's max number.
+    Deterministic — assigned in submission order so IDs stay stable across the
+    30-min rebuilds (mirrors the store_master / Code.gs engine)."""
+    import re
+    counters = {p: 0 for p in PREFIX_BY_BIZ.values()}
+    for code in choices.get("shop_name", {}):              # seed from catalog max
+        m = re.match(r"^([A-Z])(\d+)$", str(code))
+        if m and m.group(1) in counters:
+            counters[m.group(1)] = max(counters[m.group(1)], int(m.group(2)))
+    ordered = sorted(raw_records, key=lambda r: (fmt(norm(r).get("_submission_time")) or "",
+                                                 norm(r).get("_id") or 0))
+    ids = {}
+    for raw in ordered:
+        rec = norm(raw)
+        key = fmt(rec.get("_uuid")) or fmt(rec.get("_id"))
+        code = fmt(rec.get("S3_Q2"))
+        if code and code != "other_shop":
+            ids[key] = code
+        else:
+            pfx = PREFIX_BY_BIZ.get(fmt(rec.get("S3_Q1")), "O")
+            counters[pfx] += 1
+            ids[key] = f"{pfx}{counters[pfx]:03d}"
+    return ids
+
+
 def build(form_asset, raw_records):
     qlabels, qlist, choices = parse_form(form_asset)
 
@@ -234,6 +268,8 @@ def build(form_asset, raw_records):
                 out.append(oth)
         return ", ".join(out) if out else "—"
 
+    store_ids = assign_store_ids(raw_records, choices)
+
     features, skipped = [], 0
     for raw in raw_records:
         rec = norm(raw)
@@ -261,8 +297,8 @@ def build(form_asset, raw_records):
         # renumber every row 1., 2., 3., ... (drop the form's own 3.1/2.7 prefixes)
         details = [[f"{i}. {strip_num(lbl)}", ans] for i, (lbl, ans) in enumerate(details, 1)]
 
-        code = fmt(rec.get("S3_Q2"))
-        ref = code if (code and code != "other_shop") else "ໃໝ່ · new"
+        key = fmt(rec.get("_uuid")) or fmt(rec.get("_id"))
+        store_id = store_ids.get(key, "—")
         title = fmt(rec.get("S3_Q2_oth")) or answer_text(rec, "S3_Q2")
         features.append({
             "type": "Feature",
@@ -270,8 +306,9 @@ def build(form_asset, raw_records):
             "properties": {
                 "status":  status,
                 "biztype": fmt(rec.get("S3_Q1")) or "?",
+                "store_id": store_id,
                 "title":   title,
-                "subtitle": f"{ref} · {fmt(rec.get('_submission_time')) or ''}",
+                "subtitle": f"ລະຫັດ · ID {store_id} · {fmt(rec.get('_submission_time')) or ''}",
                 "details": details,
             },
         })
