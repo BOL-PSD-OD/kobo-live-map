@@ -153,7 +153,7 @@ def derive_status(acquirer, qr, use_domestic, interested):
     Mirrors store_master/status.py (kept inline to keep this repo self-contained)."""
     acquirer = set(acquirer or [])
     dom = "1" in acquirer
-    foreign = "2" in acquirer
+    foreign = "2" in acquirer or "0" in acquirer   # "2" new form / "0" legacy form
     notool = "3" in acquirer
     if dom and foreign:
         if use_domestic == "1":
