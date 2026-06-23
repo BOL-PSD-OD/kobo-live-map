@@ -46,7 +46,8 @@
   /* filters: account status + business type (top right) — collapsible */
   #filter { position:absolute; top:10px; right:10px; z-index:1100; background:#fff;
             border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,.3); padding:10px 12px; font-size:13px;
-            max-height:calc(100vh - 40px); overflow-y:auto; }
+            width:max-content; max-width:calc(100vw - 20px); box-sizing:border-box;
+            max-height:calc(100vh - 40px); overflow-y:auto; overflow-x:hidden; }
   #filter-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
   #filter-head h4 { margin:0; font-size:13px; }
   #filter.collapsed { padding:6px 8px; }
@@ -70,10 +71,12 @@
   @keyframes mi-scaled   { 50%{transform:scale(0)} 100%{transform:scale(0)} }
   @keyframes mi-scaled-2 { 0%{transform:scale(0)} 50%{transform:scale(0)} 100%{transform:scale(1)} }
   .f-title { font-size:12px; font-weight:700; color:#444; margin:9px 0 3px; }
-  #filter label { display:flex; align-items:center; gap:7px; padding:3px 0; cursor:pointer; white-space:nowrap; }
+  #filter label { display:flex; align-items:flex-start; gap:7px; padding:3px 0; cursor:pointer; }
+  #filter label input { flex:none; margin-top:2px; }
+  #filter label .lbl { flex:1 1 auto; min-width:0; white-space:normal; overflow-wrap:anywhere; }
   .dot { width:13px; height:13px; border-radius:50%; border:1.5px solid #fff;
-         box-shadow:0 0 2px rgba(0,0,0,.5); flex:none; }
-  .cnt { color:#888; font-size:11.5px; }
+         box-shadow:0 0 2px rgba(0,0,0,.5); flex:none; margin-top:2px; }
+  .cnt { color:#888; font-size:11.5px; flex:none; }
   /* legend info icon: a circled "i"; hover shows the status explanation (native tooltip) */
   .info-badge { display:inline-flex; align-items:center; justify-content:center;
                 width:15px; height:15px; border-radius:50%; border:1.2px solid #999;
@@ -329,7 +332,7 @@ Object.entries(STATUS).forEach(([code, st]) => {
   const label = document.createElement('label');
   label.innerHTML = `<input type="checkbox" checked data-code="${code}">
     <span class="dot" style="background:${st.color}"></span>
-    <span>${esc(st.label)}</span> <span class="cnt">(${n})</span>
+    <span class="lbl">${esc(st.label)}</span> <span class="cnt">(${n})</span>
     <span class="info-badge" title="${esc(st.desc || st.label)}">i</span>`;
   label.querySelector('input').addEventListener('change', applyFilter);
   // hovering the "i" shows the explanation; clicking it must NOT toggle the filter
@@ -343,7 +346,7 @@ Object.entries(TYPES).forEach(([code, name]) => {
   const n = markers.filter(m => m.biztype === code).length;
   const label = document.createElement('label');
   label.innerHTML = `<input type="checkbox" checked data-code="${code}">
-    <span>${esc(name)}</span> <span class="cnt">(${n})</span>`;
+    <span class="lbl">${esc(name)}</span> <span class="cnt">(${n})</span>`;
   label.querySelector('input').addEventListener('change', applyFilter);
   typeRows.appendChild(label);
 });
