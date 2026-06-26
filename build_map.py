@@ -113,9 +113,10 @@ def fetch_from_sheet():
         json.loads(sa), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
     sh = gspread.authorize(creds).open_by_key(sid)
     raw_rows = sh.worksheet("_raw").get_all_records()
-    form_rows = sh.worksheet("_form").get_all_records()
+    form_chunks = sh.worksheet("_form").col_values(1)[1:]   # column A, skip "form_json" header
     records = [json.loads(r["raw_json"]) for r in raw_rows if r.get("raw_json")]
-    form = json.loads(form_rows[0]["form_json"]) if form_rows and form_rows[0].get("form_json") else {}
+    form_json = "".join(str(c) for c in form_chunks)
+    form = json.loads(form_json) if form_json else {}
     return form, records
 
 
