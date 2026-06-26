@@ -29,14 +29,13 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install cryptography
+        run: pip install -r requirements.txt
 
       - name: Build map from Kobo data
         env:
-          KOBO_TOKEN: ${{ secrets.KOBO_TOKEN }}
-          KOBO_ASSET_UID: ${{ secrets.KOBO_ASSET_UID }}
-          KOBO_SERVER: ${{ vars.KOBO_SERVER || 'https://kf.kobotoolbox.org' }}
-          MAP_PASSWORD: ${{ secrets.MAP_PASSWORD }}
+          SHEET_ID:       ${{ secrets.SHEET_ID }}
+          GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
+          MAP_PASSWORD:   ${{ secrets.MAP_PASSWORD }}
         run: python build_map.py
 
       - uses: actions/upload-pages-artifact@v3

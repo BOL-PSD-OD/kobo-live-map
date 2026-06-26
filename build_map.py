@@ -102,6 +102,23 @@ def fetch_records():
     return records
 
 
+def fetch_from_sheet():
+    """Read (form, records) from the sync Google Sheet (_form/_raw), read-only.
+    Lets the map keep working after old submissions are deleted from Kobo."""
+    import gspread
+    from google.oauth2.service_account import Credentials
+    sa = os.environ["GOOGLE_SA_JSON"]
+    sid = os.environ["SHEET_ID"]
+    creds = Credentials.from_service_account_info(
+        json.loads(sa), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
+    sh = gspread.authorize(creds).open_by_key(sid)
+    raw_rows = sh.worksheet("_raw").get_all_records()
+    form_rows = sh.worksheet("_form").get_all_records()
+    records = [json.loads(r["raw_json"]) for r in raw_rows if r.get("raw_json")]
+    form = json.loads(form_rows[0]["form_json"]) if form_rows and form_rows[0].get("form_json") else {}
+    return form, records
+
+
 def first_label(label):
     # Kobo stores labels as a list (one per language) or a plain string
     if isinstance(label, list):
@@ -393,10 +410,10 @@ def main():
         fake = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
         build(fake["form"], fake["records"])
         return
-    if not TOKEN or not UID:
-        sys.exit("KOBO_TOKEN and KOBO_ASSET_UID environment variables are required")
-    print(f"fetching form + data from {SERVER} (asset {UID}) ...")
-    build(fetch_form(), fetch_records())
+    if not os.environ.get("SHEET_ID") or not os.environ.get("GOOGLE_SA_JSON"):
+        sys.exit("SHEET_ID and GOOGLE_SA_JSON environment variables are required")
+    print("fetching form + data from Google Sheet (_raw / _form) ...")
+    build(*fetch_from_sheet())   # (form, records) — fetch_form()/fetch_records() kept as dormant fallback
 
 
 if __name__ == "__main__":
