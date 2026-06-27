@@ -95,14 +95,24 @@ def fetch_records():
 
 
 def fetch_from_sheet():
-    """Read (form, records) from the sync Google Sheet (_form/_raw), read-only.
-    Lets the map keep working after old submissions are deleted from Kobo."""
+    """Read (form, records) from the sync Google Sheet (_form/_raw).
+    Prefers the user's OAuth creds (service account may be deleted / has no quota);
+    falls back to the service account. Lets the map keep working after Kobo deletes."""
     import gspread
-    from google.oauth2.service_account import Credentials
-    sa = os.environ["GOOGLE_SA_JSON"]
     sid = os.environ["SHEET_ID"]
-    creds = Credentials.from_service_account_info(
-        json.loads(sa), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
+    client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
+    if client_id:
+        from google.oauth2.credentials import Credentials as UserCredentials
+        creds = UserCredentials(
+            None, refresh_token=os.environ["GOOGLE_OAUTH_REFRESH_TOKEN"],
+            client_id=client_id, client_secret=os.environ["GOOGLE_OAUTH_CLIENT_SECRET"],
+            token_uri="https://oauth2.googleapis.com/token",
+            scopes=["https://www.googleapis.com/auth/drive"])
+    else:
+        from google.oauth2.service_account import Credentials
+        creds = Credentials.from_service_account_info(
+            json.loads(os.environ["GOOGLE_SA_JSON"]),
+            scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
     sh = gspread.authorize(creds).open_by_key(sid)
     raw_rows = sh.worksheet("_raw").get_all_records()
     form_chunks = sh.worksheet("_form").col_values(1)[1:]   # column A, skip "form_json" header
