@@ -60,26 +60,18 @@ STATUS = {
 FALLBACK_LABELS = {"S3_Q3": "ເມືອງ · District", "S3_Q4": "ບ້ານ · Village"}
 
 # Business type (S3_Q1) -> Store ID prefix for non-catalog ("other") shops.
-# Mirrors store_master/constants.py PREFIX_BY_BIZ.
-PREFIX_BY_BIZ = {"tour": "T", "hotel": "H", "restaurant": "R", "spa": "M",
-                 "souvenir": "G", "night_market": "N", "oth_biz": "O"}
+# Mirrors store_master/constants.py PREFIX_BY_BIZ (2026-06-27 form revision).
+PREFIX_BY_BIZ = {"tour": "T", "hotel": "H", "restaurant": "R", "guesthouse": "G",
+                 "karaoke": "K", "pub": "P", "nightclub": "N", "oth_biz": "O"}
 
-# detail-card field order: (column, is multi-select?)
-CARD_FIELDS = [("S2_Q1", False), ("phone", False),
-               ("S3_Q1", False), ("S3_Q3", False), ("S3_Q4", False), ("S3_Q6", False),
-               ("S3_Q7", True),  ("S3_Q9", True),  ("S3_Q8", True),  ("S3_Q14", True),
-               ("S3_Q12", False), ("S3_Q15", False), ("S3_Q17", False)]
-PSP_COLS = ["S3_Q10", "S3_Q11", "S3_Q13"]   # bank/PSP lists (different payment branches)
-S4_COLS = ["S4_Q1", "S4_Q2", "S4_Q3", "S4_Q4"]   # awareness questions ("1" = heard before)
-
-# S3_Q17: append the SME enterprise-size name (4 levels, Lao SME law) to the
-# form's revenue-range label -> "400 – 4,500 ລ້ານກີບ - ວິສາຫະກິດຂະໜາດນ້ອຍ".
-SME_SIZE = {
-    "1": "ຈຸລະວິສາຫະກິດ",
-    "2": "ວິສາຫະກິດຂະໜາດນ້ອຍ",
-    "3": "ວິສາຫະກິດຂະໜາດກາງ",
-    "4": "ວິສາຫະກິດຂະໜາດໃຫຍ່",
-}
+# detail-card field order: (column, is multi-select?). New-form numbers;
+# district/village are now free-text S3.1_Q1/Q2; owner/phone are S3.1_Q3/Q5.
+CARD_FIELDS = [("S3.1_Q3", False), ("S3.1_Q5", False),
+               ("S3_Q1", False), ("S3.1_Q1", False), ("S3.1_Q2", False), ("S3_Q3", False),
+               ("S3_Q4", True),  ("S3_Q6", True),  ("S3_Q5", True),  ("S3_Q11", True),
+               ("S3_Q9", False), ("S3_Q12", False), ("S3_Q14", False)]
+PSP_COLS = ["S3_Q7", "S3_Q8", "S3_Q10"]   # bank/PSP lists (Lao QR / merchant / foreign)
+S2_COLS = ["S2_Q1", "S2_Q2", "S2_Q3"]     # awareness questions ("1" = heard before)
 
 
 def api_get(url):
@@ -296,22 +288,17 @@ def build(form_asset, raw_records):
             skipped += 1
             continue
 
-        status = derive_status(codeset(rec, "S3_Q7"), codeset(rec, "S3_Q9"),
-                               fmt(rec.get("S3_Q12")), fmt(rec.get("S3_Q15")))
+        status = derive_status(codeset(rec, "S3_Q4"), codeset(rec, "S3_Q6"),
+                               fmt(rec.get("S3_Q9")), fmt(rec.get("S3_Q12")))
 
         details = []
         for q, multi in CARD_FIELDS:
-            if q == "S3_Q17":
-                base = answer_text(rec, q, multi)   # revenue range from the form
-                size = SME_SIZE.get(fmt(rec.get("S3_Q17")))
-                ans = (base + " - " + size) if (size and base != "—") else base
-            else:
-                ans = answer_text(rec, q, multi)
+            ans = answer_text(rec, q, multi)
             details.append([qlabel(q), ans])
         details.append(["ທະນາຄານ/ຜູ້ໃຫ້ບໍລິການ · Bank / PSP", psp_text(rec)])
-        s4 = sum(1 for q in S4_COLS if fmt(rec.get(q)) == "1")
-        details.append(["ການຮັບຮູ້ລະບຽບການ · Awareness (Section 4)",
-                        f"{s4} / {len(S4_COLS)}"])
+        s2 = sum(1 for q in S2_COLS if fmt(rec.get(q)) == "1")
+        details.append(["ການຮັບຮູ້ · Awareness",
+                        f"{s2} / {len(S2_COLS)}"])
         # renumber every row 1., 2., 3., ... (drop the form's own 3.1/2.7 prefixes)
         details = [[f"{i}. {strip_num(lbl)}", ans] for i, (lbl, ans) in enumerate(details, 1)]
 
