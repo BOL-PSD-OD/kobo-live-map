@@ -408,8 +408,9 @@ def main():
         fake = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
         build(fake["form"], fake["records"])
         return
-    if not os.environ.get("SHEET_ID") or not os.environ.get("GOOGLE_SA_JSON"):
-        sys.exit("SHEET_ID and GOOGLE_SA_JSON environment variables are required")
+    if not os.environ.get("SHEET_ID") or not (
+            os.environ.get("GOOGLE_OAUTH_CLIENT_ID") or os.environ.get("GOOGLE_SA_JSON")):
+        sys.exit("SHEET_ID and (GOOGLE_OAUTH_* or GOOGLE_SA_JSON) environment variables are required")
     print("fetching form + data from Google Sheet (_raw / _form) ...")
     build(*fetch_from_sheet())   # (form, records) — fetch_form()/fetch_records() kept as dormant fallback
 
