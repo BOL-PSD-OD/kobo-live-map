@@ -57,17 +57,18 @@ STATUS = {
                       "desc": "ຂໍ້ມູນບໍ່ຄົບ — ບໍ່ສາມາດລະບຸສະຖານະໄດ້ · Incomplete data — status undetermined"},
 }
 
-FALLBACK_LABELS = {"S3_Q3": "ເມືອງ · District", "S3_Q4": "ບ້ານ · Village"}
+FALLBACK_LABELS = {"S3.1_Q2": "ເມືອງ · District", "S3.1_Q3": "ບ້ານ · Village"}
 
 # Business type (S3_Q1) -> Store ID prefix for non-catalog ("other") shops.
 # Mirrors store_master/constants.py PREFIX_BY_BIZ (2026-06-27 form revision).
 PREFIX_BY_BIZ = {"tour": "T", "hotel": "H", "restaurant": "R", "guesthouse": "G",
                  "karaoke": "K", "pub": "P", "nightclub": "N", "oth_biz": "O"}
 
-# detail-card field order: (column, is multi-select?). New-form numbers;
-# district/village are now free-text S3.1_Q1/Q2; owner/phone are S3.1_Q3/Q5.
-CARD_FIELDS = [("S3.1_Q3", False), ("S3.1_Q5", False),
-               ("S3_Q1", False), ("S3.1_Q1", False), ("S3.1_Q2", False), ("S3_Q3", False),
+# detail-card field order: (column, is multi-select?). 2026-07 form: Section 3.1
+# leads with a License question (S3.1_Q1), so the free-text detail fields shift
+# down one — district S3.1_Q2, village S3.1_Q3, owner S3.1_Q4, phone S3.1_Q6.
+CARD_FIELDS = [("S3.1_Q4", False), ("S3.1_Q6", False),
+               ("S3_Q1", False), ("S3.1_Q2", False), ("S3.1_Q3", False), ("S3_Q3", False),
                ("S3_Q4", True),  ("S3_Q6", True),  ("S3_Q5", True),  ("S3_Q11", True),
                ("S3_Q9", False), ("S3_Q12", False), ("S3_Q14", False)]
 PSP_COLS = ["S3_Q7", "S3_Q8", "S3_Q10"]   # bank/PSP lists (Lao QR / merchant / foreign)
