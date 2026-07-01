@@ -28,33 +28,22 @@ TOKEN = os.environ.get("KOBO_TOKEN", "")
 UID = os.environ.get("KOBO_ASSET_UID", "")
 PASSWORD = os.environ.get("MAP_PASSWORD", "")  # when set, the published page is AES-encrypted
 
-# Derived status (9 states + unknown): key -> label + marker colour + hover desc.
-# Green family = already in the domestic system; the other six = PSP target list.
+# Account status collapsed to 3 buckets (matches psp_export / dashboard interest):
+# green = already in the domestic system, yellow = interested, red = not interested.
 STATUS = {
-    # 1-3: both domestic + foreign  ("QR in + QR out")
-    "both_using":    {"label": "ຮັບຊຳລະພາຍໃນ ແລະ ນອກ · ໃຊ້ພາຍໃນ · Both · in system",       "color": "#2e7d32",
-                      "desc": "ຮັບທັງພາຍໃນ ແລະ ຕ່າງປະເທດ · ໃຊ້ບໍລິການພາຍໃນ (3.12=1) — ຢູ່ໃນລະບົບແລ້ວ · Both acquirers, uses domestic — in system"},
-    "both_int":      {"label": "ຮັບຊຳລະພາຍໃນ ແລະ ນອກ · ບໍ່ໃຊ້ · ສົນໃຈ · Both · not using · interested", "color": "#f9a825",
-                      "desc": "ຮັບທັງສອງ ແຕ່ບໍ່ໃຊ້ບໍລິການພາຍໃນ (3.12=0) · ສົນໃຈ (3.15=1) → ສົ່ງ PSP · Both, not using domestic, interested → send to PSP"},
-    "both_unint":    {"label": "ຮັບຊຳລະພາຍໃນ ແລະ ນອກ · ບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Both · not using · not interested", "color": "#6d4c41",
-                      "desc": "ຮັບທັງສອງ ແຕ່ບໍ່ໃຊ້ບໍລິການພາຍໃນ · ບໍ່ສົນໃຈ (3.15=0) → ສົ່ງ PSP (ມີອຸປະສັກ) · Both, not using, not interested → send to PSP"},
-    # 4-6: foreign only  ("QR out")
-    "foreign_using": {"label": "ຮັບຊຳລະຕ່າງປະເທດ · ໃຊ້ພາຍໃນ · Foreign · in system",       "color": "#00897b",
-                      "desc": "ຮັບຕ່າງປະເທດ ແຕ່ໃຊ້ບໍລິການພາຍໃນ (3.12=1) — ຢູ່ໃນລະບົບແລ້ວ · Foreign acquirer but uses domestic — in system"},
-    "foreign_int":   {"label": "ຮັບຊຳລະຕ່າງປະເທດ · ບໍ່ໃຊ້ · ສົນໃຈ · Foreign · not using · interested", "color": "#fb8c00",
-                      "desc": "ຮັບຕ່າງປະເທດ ບໍ່ໃຊ້ພາຍໃນ · ສົນໃຈ (3.15=1) → ສົ່ງ PSP · Foreign, not using domestic, interested → send to PSP"},
-    "foreign_unint": {"label": "ຮັບຊຳລະຕ່າງປະເທດ · ບໍ່ໃຊ້ · ບໍ່ສົນໃຈ · Foreign · not using · not interested", "color": "#c62828",
-                      "desc": "ຮັບຕ່າງປະເທດ ບໍ່ໃຊ້ພາຍໃນ · ບໍ່ສົນໃຈ (3.15=0) → ສົ່ງ PSP (ມີອຸປະສັກ) · Foreign, not using, not interested → send to PSP"},
-    # 7: domestic only  ("QR in")
-    "domestic":      {"label": "ຮັບຊຳລະພາຍໃນ · ມີ QR ພາຍໃນ · Domestic · in system",        "color": "#1b5e20",
-                      "desc": "ຮັບແຕ່ພາຍໃນ (QR ພາຍໃນ) — ຢູ່ໃນລະບົບແລ້ວ (ບໍ່ຕ້ອງສົ່ງ PSP) · Domestic acquirer only — already in the domestic system"},
-    # 8-9: no payment tool  ("not QR in")
-    "notool_int":    {"label": "ບໍ່ມີເຄື່ອງມື · ສົນໃຈ · No tool · interested",            "color": "#1565c0",
-                      "desc": "ບໍ່ມີເຄື່ອງມືຮັບຊຳລະເລີຍ · ສົນໃຈ (3.15=1) → ສົ່ງ PSP ເປັນເປົ້າໝາຍຕົ້ນໆ · No payment tool, interested → top PSP target"},
-    "notool_unint":  {"label": "ບໍ່ມີເຄື່ອງມື · ບໍ່ສົນໃຈ · No tool · not interested",       "color": "#455a64",
-                      "desc": "ບໍ່ມີເຄື່ອງມືຮັບຊຳລະເລີຍ · ບໍ່ສົນໃຈ (3.15=0) → ສົ່ງ PSP (ມີອຸປະສັກ) · No payment tool, not interested → send to PSP"},
-    "unknown":       {"label": "ບໍ່ລະບຸ · Unknown",                                     "color": "#9e9e9e",
-                      "desc": "ຂໍ້ມູນບໍ່ຄົບ — ບໍ່ສາມາດລະບຸສະຖານະໄດ້ · Incomplete data — status undetermined"},
+    "using":        {"label": "ໃຊ້ແລ້ວ · ຢູ່ໃນລະບົບ · In system", "color": "#2e7d32",
+                     "desc": "ໃຊ້ບໍລິການຮັບຊຳລະພາຍໃນແລ້ວ — ຢູ່ໃນລະບົບ · Already uses a domestic acquirer / QR"},
+    "interested":   {"label": "ສົນໃຈ · Interested", "color": "#f9a825",
+                     "desc": "ຍັງບໍ່ໃຊ້ບໍລິການພາຍໃນ ແຕ່ສົນໃຈ → ເປົ້າໝາຍ PSP · Not using domestic yet, interested"},
+    "uninterested": {"label": "ບໍ່ສົນໃຈ · Not interested", "color": "#c62828",
+                     "desc": "ຍັງບໍ່ໃຊ້ບໍລິການພາຍໃນ ແລະ ບໍ່ສົນໃຈ · Not using, not interested"},
+}
+
+# 9-state derive_status() key -> 3 display buckets (unknown -> None = hidden on the map).
+STATUS3 = {
+    "domestic": "using", "both_using": "using", "foreign_using": "using",
+    "both_int": "interested", "foreign_int": "interested", "notool_int": "interested",
+    "both_unint": "uninterested", "foreign_unint": "uninterested", "notool_unint": "uninterested",
 }
 
 FALLBACK_LABELS = {"S3.1_Q2": "ເມືອງ · District", "S3.1_Q3": "ບ້ານ · Village"}
@@ -291,7 +280,7 @@ def build(form_asset, raw_records):
 
     store_ids = assign_store_ids(raw_records, choices)
 
-    features, skipped = [], 0
+    features, skipped, hidden = [], 0, 0
     for raw in raw_records:
         rec = norm(raw)
         lat, lon = latlon(rec)
@@ -299,8 +288,12 @@ def build(form_asset, raw_records):
             skipped += 1
             continue
 
-        status = derive_status(codeset(rec, "S3_Q4"), codeset(rec, "S3_Q6"),
-                               fmt(rec.get("S3_Q9")), fmt(rec.get("S3_Q12")))
+        status = STATUS3.get(derive_status(
+            codeset(rec, "S3_Q4"), codeset(rec, "S3_Q6"),
+            fmt(rec.get("S3_Q9")), fmt(rec.get("S3_Q12"))))
+        if status is None:          # incomplete data -> not classifiable -> hidden per design
+            hidden += 1
+            continue
 
         details = []
         for q, multi in CARD_FIELDS:
@@ -337,7 +330,7 @@ def build(form_asset, raw_records):
         types[c] = c
 
     points_fc = {"type": "FeatureCollection", "features": features}
-    print(f"records: {len(raw_records)} | points: {len(features)} | no coordinates: {skipped}")
+    print(f"records: {len(raw_records)} | points: {len(features)} | no coordinates: {skipped} | hidden(unclassified): {hidden}")
     print("by status:", {s: sum(1 for f in features if f["properties"]["status"] == s) for s in STATUS})
     print("business types:", types)
 
