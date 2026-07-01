@@ -41,9 +41,12 @@ STATUS = {
 
 # 9-state derive_status() key -> 3 display buckets (unknown -> None = hidden on the map).
 STATUS3 = {
+    # accept the domestic system (has domestic acquirer) OR already use it -> "using"
     "domestic": "using", "both_using": "using", "foreign_using": "using",
-    "both_int": "interested", "foreign_int": "interested", "notool_int": "interested",
-    "both_unint": "uninterested", "foreign_unint": "uninterested", "notool_unint": "uninterested",
+    "both_int": "using", "both_unint": "using",
+    # no domestic acquirer (foreign-only / no tool): split by interest
+    "foreign_int": "interested", "notool_int": "interested",
+    "foreign_unint": "uninterested", "notool_unint": "uninterested",
 }
 
 FALLBACK_LABELS = {"S3.1_Q2": "ເມືອງ · District", "S3.1_Q3": "ບ້ານ · Village"}
