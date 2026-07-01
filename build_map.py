@@ -63,7 +63,7 @@ CARD_FIELDS = [("S3.1_Q4", False), ("S3.1_Q6", False),
                ("S3_Q4", True),  ("S3_Q6", True),  ("S3_Q5", True),  ("S3_Q11", True),
                ("S3_Q9", False), ("S3_Q12", False), ("S3_Q14", False)]
 PSP_COLS = ["S3_Q7", "S3_Q8", "S3_Q10"]   # bank/PSP lists (Lao QR / merchant / foreign)
-S2_COLS = ["S2_Q1", "S2_Q2", "S2_Q3"]     # awareness questions ("1" = heard before)
+# Section-2 awareness ("learn") question names are derived per-form inside build()
 
 
 def api_get(url):
@@ -240,6 +240,7 @@ def assign_store_ids(raw_records, choices):
 
 def build(form_asset, raw_records):
     qlabels, qlist, choices = parse_form(form_asset)
+    s2_cols = [q for q, ln in qlist.items() if ln == "learn"]   # Section-2 awareness, form order
 
     # Legacy data: the old form used acquirer "0" for foreign (the deployed form
     # now uses "2"). Alias "0" to the foreign label so old submissions render the
@@ -302,9 +303,9 @@ def build(form_asset, raw_records):
             ans = answer_text(rec, q, multi)
             details.append([qlabel(q), ans])
         details.append(["ທະນາຄານ/ຜູ້ໃຫ້ບໍລິການ · Bank / PSP", psp_text(rec)])
-        s2 = sum(1 for q in S2_COLS if fmt(rec.get(q)) == "1")
+        s2 = sum(1 for q in s2_cols if fmt(rec.get(q)) == "1")
         details.append(["ການຮັບຮູ້ · Awareness",
-                        f"{s2} / {len(S2_COLS)}"])
+                        f"{s2} / {len(s2_cols)}"])
         # renumber every row 1., 2., 3., ... (drop the form's own 3.1/2.7 prefixes)
         details = [[f"{i}. {strip_num(lbl)}", ans] for i, (lbl, ans) in enumerate(details, 1)]
 
